@@ -41,20 +41,20 @@ export default function DashboardLayout({
                         ? "translate-x-0"
                         : "-translate-x-full md:translate-x-0"
                 }`}>
-                <div className="flex items-center gap-[20px] px-[2px]">
-                    <div
-                        className="w-[44px] h-[46px] border-2 border-[#c9b56d] text-[#c9b56d] grid place-items-center font-serif font-bold text-[21px]"
-                        style={{
-                            clipPath:
-                                "polygon(12% 0, 88% 0, 100% 82%, 50% 100%, 0 82%)",
-                        }}>
-                        B
-                    </div>
-                    <div className="text-[21px] font-bold leading-[1.12] tracking-tight">
-                        Museum <br /> Brawijaya
-                    </div>
+                {/* BRAND / LOGO SIDEBAR */}
+                <div className="flex items-center justify-between px-[2px]">
+                    <Link href="/dashboard" className="flex items-center">
+                        {/* Ubah src sesuai nama file logo Anda yang ada di folder public */}
+                        <img
+                            src="/images/logo_museum.jpg"
+                            alt="Logo Museum Brawijaya"
+                            className="h-[48px] w-auto object-contain"
+                        />
+                    </Link>
+
+                    {/* Tombol Close Mobile */}
                     <button
-                        className="md:hidden ml-auto w-[29px] h-[29px] border-2 border-white rounded-[6px] bg-transparent p-0 flex items-center justify-center cursor-pointer"
+                        className="md:hidden w-[29px] h-[29px] border-2 border-white rounded-[6px] bg-transparent p-0 flex items-center justify-center cursor-pointer ml-auto"
                         onClick={() => setSidebarOpen(false)}>
                         <span className="h-[15px] w-[2px] bg-white block mr-[4px] rotate-45 translate-x-[3px]" />
                         <span className="h-[15px] w-[2px] bg-white block -rotate-45 -translate-x-[3px]" />
@@ -63,6 +63,7 @@ export default function DashboardLayout({
 
                 <div className="h-[1px] bg-[#a1a1a1] my-[34px] opacity-90" />
 
+                {/* MENU NAVIGASI */}
                 <nav className="flex flex-col gap-[16px]">
                     {navigation.map(({ label, href, icon: Icon }) => {
                         const isActive = pathname === href;
@@ -83,6 +84,7 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
+                {/* TOMBOL KELUAR */}
                 <button className="mt-auto text-[#ff4c4c] hover:text-red-400 hover:bg-[#222] rounded-full flex items-center gap-[20px] bg-transparent border-0 p-[15px_20px] cursor-pointer self-start transition-colors">
                     <LogOut className="w-[28px] h-[28px] stroke-[1.8]" />
                     <span className="text-[18px] font-bold">Keluar</span>
@@ -99,7 +101,7 @@ export default function DashboardLayout({
 
             {/* --- MAIN CONTENT AREA --- */}
             <div className="min-w-0 flex-1 flex flex-col h-screen overflow-y-auto">
-                {/* Header Navbar - Padding disamakan persis dengan padding Main Content */}
+                {/* HEADER NAVBAR */}
                 <header className="sticky top-0 z-20 bg-[#f5f5f5] h-[90px] border-b border-[#dddddd] flex items-center justify-between px-5 md:px-[40px]">
                     <div className="flex items-center gap-4">
                         <button
@@ -118,13 +120,20 @@ export default function DashboardLayout({
                             onClick={() => setNotificationsOpen(true)}>
                             <Bell className="w-[20px] h-[20px] md:w-[22px] md:h-[22px] stroke-[2]" />
                         </button>
-                        <div className="w-[45px] h-[45px] md:w-[50px] md:h-[50px] rounded-full bg-gradient-to-br from-[#d0b85f] to-[#6b5949] flex items-center justify-center text-white font-bold text-sm md:text-lg border-[2.5px] border-white shadow-sm cursor-pointer">
-                            AV
+
+                        {/* FOTO PROFIL HEADER (Dahulu Icon AV) */}
+                        <div className="w-[45px] h-[45px] md:w-[50px] md:h-[50px] rounded-full overflow-hidden border-[2.5px] border-white shadow-sm cursor-pointer shrink-0">
+                            {/* Ubah src sesuai nama file foto profil Anda di folder public */}
+                            <img
+                                src="/images/logo-profil.jfif"
+                                alt="Foto Profil"
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                     </div>
                 </header>
 
-                {/* Render Halaman Disini - Menggunakan padding yang simetris dengan header */}
+                {/* Main Content */}
                 <main className="p-5 md:p-[40px] flex-1">{children}</main>
             </div>
 
