@@ -110,7 +110,7 @@ export default function ResetKataSandiPage() {
                 <div className="w-full md:w-1/2 flex justify-center p-4">
                     <div className="relative w-[350px] h-[500px] rounded-[30px] overflow-hidden">
                         <Image
-                            src="/images/museum-brawijaya.jpg"
+                            src="/images/Museum_Brawijaya_1.jpg"
                             alt="Museum Brawijaya"
                             fill
                             className="object-cover"
