@@ -22,7 +22,7 @@ const initialData = [
         token: "HAU7718",
         deskripsi:
             "Seragam asli tentara Belanda yang digunakan pada masa agresi militer. Ditemukan di area perkemahan sisa peninggalan.",
-        gambar: "https://via.placeholder.com/400x300?text=Seragam+Belanda",
+        gambar: "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 2,
@@ -32,7 +32,7 @@ const initialData = [
         token: "9019HHUA",
         deskripsi:
             "Senapan laras panjang yang digunakan oleh pasukan gerilya. Kondisi masih cukup baik namun sudah dinonaktifkan.",
-        gambar: "https://via.placeholder.com/400x300?text=EG-289",
+        gambar: "https://images.unsplash.com/photo-1595590424283-b8f17842773f?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 3,
@@ -42,7 +42,7 @@ const initialData = [
         token: "MSK0012",
         deskripsi:
             "Mesin ketik yang digunakan untuk menyusun dokumen-dokumen penting kemerdekaan di daerah Jawa Timur.",
-        gambar: "https://via.placeholder.com/400x300?text=Mesin+Ketik",
+        gambar: "https://images.unsplash.com/photo-1558051815-0f18e64e6280?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 4,
@@ -52,7 +52,7 @@ const initialData = [
         token: "MRM8821",
         deskripsi:
             "Meriam buatan pejuang lokal dari bambu pilihan untuk menakuti pasukan musuh dari kejauhan.",
-        gambar: "https://via.placeholder.com/400x300?text=Meriam+Bambu",
+        gambar: "https://images.unsplash.com/photo-1519751138087-5bf79df62d5b?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 5,
@@ -62,7 +62,7 @@ const initialData = [
         token: "HLM4490",
         deskripsi:
             "Helm baja pasukan KNIL yang berhasil disita oleh pejuang setelah pertempuran sengit.",
-        gambar: "https://via.placeholder.com/400x300?text=Helm+Baja",
+        gambar: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 6,
@@ -72,7 +72,7 @@ const initialData = [
         token: "PTA1102",
         deskripsi:
             "Peta usang yang menunjukkan jalur logistik pejuang di wilayah pegunungan selatan.",
-        gambar: "https://via.placeholder.com/400x300?text=Peta+Kuno",
+        gambar: "https://images.unsplash.com/photo-1524661135-423995f22d0b?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 7,
@@ -82,7 +82,7 @@ const initialData = [
         token: "UANG77X",
         deskripsi:
             "Oeang Republik Indonesia (ORI) emisi pertama yang beredar sangat terbatas.",
-        gambar: "https://via.placeholder.com/400x300?text=Uang+ORI",
+        gambar: "https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 8,
@@ -92,7 +92,7 @@ const initialData = [
         token: "KRS9090",
         deskripsi:
             "Keris pusaka peninggalan bupati setempat yang diserahkan untuk mendukung perjuangan.",
-        gambar: "https://via.placeholder.com/400x300?text=Keris+Pusaka",
+        gambar: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 9,
@@ -102,7 +102,7 @@ const initialData = [
         token: "BND3321",
         deskripsi:
             "Sisa bendera Merah Putih yang berkibar saat pertempuran mempertahankan balai kota.",
-        gambar: "https://via.placeholder.com/400x300?text=Bendera+Robek",
+        gambar: "https://images.unsplash.com/photo-1532375810709-75b1da00537c?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 10,
@@ -112,7 +112,7 @@ const initialData = [
         token: "SPD8812",
         deskripsi:
             "Sepeda yang digunakan kurir pejuang untuk mengantar pesan rahasia antar markas.",
-        gambar: "https://via.placeholder.com/400x300?text=Sepeda+Onthel",
+        gambar: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 11,
@@ -122,7 +122,7 @@ const initialData = [
         token: "PTG5567",
         deskripsi:
             "Patung kecil perunggu lambang persatuan yang disembunyikan dari perampasan penjajah.",
-        gambar: "https://via.placeholder.com/400x300?text=Patung+Perunggu",
+        gambar: "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 12,
@@ -132,7 +132,7 @@ const initialData = [
         token: "RDO1129",
         deskripsi:
             "Radio penerima siaran RRI untuk memantau pergerakan sekutu di pusat.",
-        gambar: "https://via.placeholder.com/400x300?text=Radio+Komunikasi",
+        gambar: "https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 13,
@@ -142,7 +142,7 @@ const initialData = [
         token: "MDL9900",
         deskripsi:
             "Medali Bintang Gerilya milik salah satu komandan pejuang tak dikenal.",
-        gambar: "https://via.placeholder.com/400x300?text=Medali+Pejuang",
+        gambar: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 14,
@@ -152,7 +152,7 @@ const initialData = [
         token: "SPT6654",
         deskripsi:
             "Sepatu boot kulit milik perwira yang tertinggal di barak lama.",
-        gambar: "https://via.placeholder.com/400x300?text=Sepatu+Lars",
+        gambar: "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?w=600&auto=format&fit=crop&q=80",
     },
     {
         id: 15,
@@ -162,7 +162,7 @@ const initialData = [
         token: "P3K7781",
         deskripsi:
             "Kotak medis kayu berisi botol-botol kaca kosong bekas obat-obatan palang merah.",
-        gambar: "https://via.placeholder.com/400x300?text=Kotak+P3K",
+        gambar: "https://images.unsplash.com/photo-1603398938378-e54eab446dde?w=600&auto=format&fit=crop&q=80",
     },
 ];
 
@@ -219,9 +219,13 @@ export default function KoleksiSejarahPage() {
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            // Hanya terima jpg
-            if (file.type !== "image/jpeg" && file.type !== "image/jpg") {
-                alert("Hanya menerima file gambar format JPG.");
+            // Terima gambar jpg, jpeg, png
+            if (
+                file.type !== "image/jpeg" &&
+                file.type !== "image/jpg" &&
+                file.type !== "image/png"
+            ) {
+                alert("Hanya menerima file gambar format JPG atau PNG.");
                 return;
             }
             const imageUrl = URL.createObjectURL(file);
@@ -242,7 +246,7 @@ export default function KoleksiSejarahPage() {
             tanggal: getCurrentDate(),
             gambar:
                 formGambar ||
-                "https://via.placeholder.com/400x300?text=No+Image",
+                "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80",
         };
         setDataKoleksi([newData, ...dataKoleksi]);
         closeModals();
@@ -302,16 +306,41 @@ export default function KoleksiSejarahPage() {
     };
 
     return (
-        <div className="w-full max-w-[1100px] animate-in fade-in duration-500 pb-10">
-            <h2 className="text-[28px] font-bold text-black mb-8 mt-2">
+        <div className="w-full animate-in fade-in duration-500 pb-10">
+            {/* INJEKSI CSS UNTUK GLASS SCROLLBAR */}
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: `
+                .glass-scroll::-webkit-scrollbar {
+                    width: 8px;
+                    height: 8px;
+                }
+                .glass-scroll::-webkit-scrollbar-track {
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    border-radius: 10px;
+                }
+                .glass-scroll::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.15); /* Transparan hitam (glass) */
+                    border-radius: 10px;
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                }
+                .glass-scroll::-webkit-scrollbar-thumb:hover {
+                    background: rgba(0, 0, 0, 0.3);
+                }
+            `,
+                }}
+            />
+
+            <h2 className="text-[26px] font-bold text-black mb-8">
                 Koleksi Sejarah
             </h2>
 
             {/* --- FILTER & TAMBAH BUTTON --- */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 {/* Search */}
-                <div className="flex items-center gap-3 bg-[#222222] text-white px-5 py-3 rounded-full w-full md:w-[380px]">
-                    <Search className="w-5 h-5 text-white/80" />
+                <div className="flex items-center gap-3 bg-[#222222] text-white px-5 py-3 rounded-full w-full md:w-[380px] shadow-sm">
+                    <Search className="w-5 h-5 text-white/80 shrink-0" />
                     <input
                         type="text"
                         value={searchQuery}
@@ -322,7 +351,7 @@ export default function KoleksiSejarahPage() {
                     {searchQuery && (
                         <button
                             onClick={() => setSearchQuery("")}
-                            className="text-white/60 hover:text-white cursor-pointer bg-transparent border-none p-0">
+                            className="text-white/60 hover:text-white cursor-pointer bg-transparent border-none p-0 shrink-0">
                             <X className="w-4 h-4" />
                         </button>
                     )}
@@ -331,101 +360,119 @@ export default function KoleksiSejarahPage() {
                 {/* Button Tambah */}
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 bg-[#222222] hover:bg-black text-white px-6 py-3 rounded-full font-bold text-[14px] transition-colors cursor-pointer">
+                    className="flex items-center gap-2 bg-[#222222] hover:bg-black text-white px-6 py-3 rounded-full font-bold text-[14px] transition-colors cursor-pointer shadow-sm">
                     <Plus className="w-5 h-5" /> Tambahkan Koleksi
                 </button>
             </div>
 
-            {/* --- TABEL DATA --- */}
-            {/* Jika mode Edit aktif, tambahkan border biru seperti di mockup 2 */}
+            {/* --- KOTAK TABEL DENGAN SCROLL GLASS --- */}
+            {/* Jika mode Edit aktif, tambahkan border biru seperti di mockup */}
             <div
-                className={`bg-white rounded-[24px] p-8 shadow-sm overflow-x-auto w-full transition-all duration-300 ${isEditMode ? "ring-4 ring-blue-500/80" : ""}`}>
-                <table className="w-full text-left min-w-[800px] border-collapse">
-                    <thead>
-                        <tr>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black w-[25%]">
-                                Nama Benda
-                            </th>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black w-[20%]">
-                                Jenis Benda
-                            </th>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black text-center">
-                                Tanggal Di Updet
-                            </th>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black text-center">
-                                Token
-                            </th>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black text-center">
-                                Detail
-                            </th>
-                            <th className="pb-4 font-bold text-black text-[15px] border-b border-black text-center">
-                                <button
-                                    onClick={() => setIsEditMode(!isEditMode)}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-[13px] transition-colors">
-                                    Edit
-                                </button>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredData.map((row) => (
-                            <tr
-                                key={row.id}
-                                className="border-b border-[#dddddd] last:border-b-0 hover:bg-gray-50 transition-colors">
-                                <td className="py-4 font-semibold text-[14px] text-black">
-                                    {row.nama}
-                                </td>
-                                <td className="py-4 font-semibold text-[14px] text-gray-700">
-                                    {row.jenis}
-                                </td>
-                                <td className="py-4 text-center font-semibold text-[14px] text-gray-700">
-                                    {row.tanggal}
-                                </td>
-                                <td className="py-4 text-center font-semibold text-[14px] text-gray-700">
-                                    {row.token}
-                                </td>
-                                <td className="py-4 text-center">
-                                    <div className="flex justify-center">
-                                        <ArrowRight
-                                            onClick={() => setDetailData(row)}
-                                            className="w-5 h-5 text-black cursor-pointer hover:scale-110 transition-transform"
-                                        />
-                                    </div>
-                                </td>
-                                <td className="py-4 text-center">
-                                    {isEditMode && (
-                                        <div className="flex justify-center items-center gap-3 animate-in fade-in zoom-in duration-200">
+                className={`bg-white rounded-[24px] shadow-sm overflow-hidden w-full transition-all duration-300 border border-gray-100 ${
+                    isEditMode ? "ring-4 ring-blue-500/80" : ""
+                }`}>
+                {/* 
+                    max-h-[460px]: Membatasi tinggi tabel agar bisa di-scroll 
+                    overflow-y-auto: Menampilkan scrollbar vertikal
+                    glass-scroll: Memanggil CSS custom scrollbar efek glass
+                    Tanpa padding top/horizontal pada scroll container agar header sticky tepat di bibir atas tanpa celah
+                */}
+                <div className="max-h-[460px] overflow-y-auto overflow-x-auto glass-scroll">
+                    <table className="w-full text-left min-w-[800px] border-collapse font-sans">
+                        <thead className="sticky top-0 z-20 bg-white shadow-[0_1px_0_0_#dddddd]">
+                            <tr className="bg-white">
+                                <th className="py-4 pl-6 pr-4 font-bold text-black text-[15px] border-b border-black w-[25%] bg-white">
+                                    Nama Benda
+                                </th>
+                                <th className="py-4 px-4 font-bold text-black text-[15px] border-b border-black w-[20%] bg-white">
+                                    Jenis Benda
+                                </th>
+                                <th className="py-4 px-4 font-bold text-black text-[15px] border-b border-black text-center bg-white">
+                                    Tanggal Di Updet
+                                </th>
+                                <th className="py-4 px-4 font-bold text-black text-[15px] border-b border-black text-center bg-white">
+                                    Token
+                                </th>
+                                <th className="py-4 px-4 font-bold text-black text-[15px] border-b border-black text-center bg-white">
+                                    Detail
+                                </th>
+                                <th className="py-4 pl-4 pr-6 font-bold text-black text-[15px] border-b border-black text-center bg-white">
+                                    <button
+                                        onClick={() =>
+                                            setIsEditMode(!isEditMode)
+                                        }
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-[13px] transition-colors cursor-pointer font-semibold shadow-sm">
+                                        {isEditMode ? "Selesai" : "Edit"}
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredData.map((row) => (
+                                <tr
+                                    key={row.id}
+                                    className="border-b border-[#dddddd] last:border-b-0 hover:bg-gray-50 transition-colors">
+                                    <td className="py-4 pl-6 pr-4 font-semibold text-[14px] text-black">
+                                        {row.nama}
+                                    </td>
+                                    <td className="py-4 px-4 font-semibold text-[14px] text-gray-700">
+                                        {row.jenis}
+                                    </td>
+                                    <td className="py-4 px-4 text-center font-semibold text-[14px] text-gray-700">
+                                        {row.tanggal}
+                                    </td>
+                                    <td className="py-4 px-4 text-center font-semibold text-[14px] text-gray-700 font-mono">
+                                        {row.token}
+                                    </td>
+                                    <td className="py-4 px-4 text-center">
+                                        <div className="flex justify-center">
                                             <button
                                                 onClick={() =>
-                                                    setDeleteItem(row)
+                                                    setDetailData(row)
                                                 }
-                                                className="text-red-500 hover:text-red-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    openEditModal(row)
-                                                }
-                                                className="text-blue-500 hover:text-blue-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
-                                                <Edit3 className="w-4 h-4" />
+                                                title="Lihat Detail Benda"
+                                                className="bg-transparent border-0 cursor-pointer p-1 rounded hover:bg-gray-100 transition-colors">
+                                                <ArrowRight className="w-5 h-5 text-black hover:scale-110 transition-transform" />
                                             </button>
                                         </div>
-                                    )}
-                                </td>
-                            </tr>
-                        ))}
+                                    </td>
+                                    <td className="py-4 pl-4 pr-6 text-center">
+                                        {isEditMode && (
+                                            <div className="flex justify-center items-center gap-3 animate-in fade-in zoom-in duration-200">
+                                                <button
+                                                    onClick={() =>
+                                                        setDeleteItem(row)
+                                                    }
+                                                    title="Hapus Koleksi"
+                                                    className="text-red-500 hover:text-red-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        openEditModal(row)
+                                                    }
+                                                    title="Edit Koleksi"
+                                                    className="text-blue-500 hover:text-blue-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
 
-                        {filteredData.length === 0 && (
-                            <tr>
-                                <td
-                                    colSpan={6}
-                                    className="py-12 text-center text-gray-500 font-semibold text-[15px]">
-                                    Data tidak ditemukan.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                            {filteredData.length === 0 && (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="py-12 text-center text-gray-500 font-semibold text-[15px]">
+                                        Data tidak ditemukan.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* --- 1. MODAL TAMBAH KOLEKSI (Blur Background) --- */}
@@ -497,18 +544,17 @@ export default function KoleksiSejarahPage() {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">
-                                    Upload Gambar (.jpg)
+                                    Upload Gambar (.jpg / .png)
                                 </label>
                                 <div className="flex items-center gap-3">
                                     <label className="cursor-pointer flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-black font-semibold py-3 px-4 rounded-xl border border-gray-300 w-full transition-colors">
                                         <Upload className="w-4 h-4" /> Pilih
-                                        File JPG
+                                        File Gambar
                                         <input
                                             type="file"
-                                            accept=".jpg, .jpeg"
+                                            accept=".jpg, .jpeg, .png"
                                             className="hidden"
                                             onChange={handleImageUpload}
-                                            required
                                         />
                                     </label>
                                     {formGambar && (
@@ -663,7 +709,7 @@ export default function KoleksiSejarahPage() {
                                         Foto (JPG)
                                         <input
                                             type="file"
-                                            accept=".jpg, .jpeg"
+                                            accept=".jpg, .jpeg, .png"
                                             className="hidden"
                                             onChange={handleImageUpload}
                                         />

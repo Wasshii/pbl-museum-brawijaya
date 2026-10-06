@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useToast } from "@/context/ToastContext";
 import {
     ArrowRight,
     Bell,
@@ -29,8 +30,39 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+    // State loading untuk menutupi layar saat proses cek autentikasi berjalan
+    const [isLoading, setIsLoading] = useState(true);
+
+    // --- PROTEKSI RUTE (Route Guard) MENGGUNAKAN TOKEN ---
+    useEffect(() => {
+        // Cek apakah adminToken (yang di-set di login.tsx) ada di localStorage
+        const token = localStorage.getItem("adminToken");
+
+        if (!token) {
+            // Jika tidak ada token (belum login atau sudah logout), lempar ke halaman login
+            router.replace("/login");
+        } else {
+            // Jika token ada, izinkan render halaman dashboard
+            setIsLoading(false);
+        }
+    }, [router]);
+
+    // --- FUNGSI LOGOUT (KELUAR) ---
+    const handleLogout = () => {
+        // 1. Hapus token dan data yang di-set saat login
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminRole");
+
+        // 2. Arahkan pengguna kembali ke halaman login (menghapus riwayat dashboard)
+        router.replace("/login");
+    };
+
+    // Tampilkan layar kosong/loading selama pengecekan token berlangsung
+    if (isLoading) return <div className="min-h-screen bg-[#f5f5f5]" />;
 
     return (
         <div className="min-h-screen flex bg-[#f5f5f5] text-[#080808] font-sans">
@@ -43,13 +75,22 @@ export default function DashboardLayout({
                 }`}>
                 {/* BRAND / LOGO SIDEBAR */}
                 <div className="flex items-center justify-between px-[2px]">
-                    <Link href="/dashboard" className="flex items-center">
-                        {/* Ubah src sesuai nama file logo Anda yang ada di folder public */}
-                        <img
-                            src="/images/logo_museum.jpg"
-                            alt="Logo Museum Brawijaya"
-                            className="h-[48px] w-auto object-contain"
-                        />
+                    <Link href="/dashboard" className="flex items-center gap-3">
+                        <div className="bg-white rounded-lg p-1 flex items-center justify-center">
+                            <img
+                                src="/images/logo_museum.jpg"
+                                alt="Logo Museum Brawijaya"
+                                className="h-[38px] w-[38px] object-contain"
+                            />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[16px] font-bold leading-tight text-white">
+                                Museum
+                            </span>
+                            <span className="text-[16px] font-bold leading-tight text-[#B5852A]">
+                                Brawijaya
+                            </span>
+                        </div>
                     </Link>
 
                     {/* Tombol Close Mobile */}
@@ -85,7 +126,9 @@ export default function DashboardLayout({
                 </nav>
 
                 {/* TOMBOL KELUAR */}
-                <button className="mt-auto text-[#ff4c4c] hover:text-red-400 hover:bg-[#222] rounded-full flex items-center gap-[20px] bg-transparent border-0 p-[15px_20px] cursor-pointer self-start transition-colors">
+                <button
+                    onClick={handleLogout}
+                    className="mt-auto text-[#ff4c4c] hover:text-red-400 hover:bg-[#222] rounded-full flex items-center gap-[20px] bg-transparent border-0 p-[15px_20px] cursor-pointer self-start transition-colors w-full">
                     <LogOut className="w-[28px] h-[28px] stroke-[1.8]" />
                     <span className="text-[18px] font-bold">Keluar</span>
                 </button>
@@ -101,7 +144,6 @@ export default function DashboardLayout({
 
             {/* --- MAIN CONTENT AREA --- */}
             <div className="min-w-0 flex-1 flex flex-col h-screen overflow-y-auto">
-                {/* HEADER NAVBAR */}
                 <header className="sticky top-0 z-20 bg-[#f5f5f5] h-[90px] border-b border-[#dddddd] flex items-center justify-between px-5 md:px-[40px]">
                     <div className="flex items-center gap-4">
                         <button
@@ -121,9 +163,7 @@ export default function DashboardLayout({
                             <Bell className="w-[20px] h-[20px] md:w-[22px] md:h-[22px] stroke-[2]" />
                         </button>
 
-                        {/* FOTO PROFIL HEADER (Dahulu Icon AV) */}
                         <div className="w-[45px] h-[45px] md:w-[50px] md:h-[50px] rounded-full overflow-hidden border-[2.5px] border-white shadow-sm cursor-pointer shrink-0">
-                            {/* Ubah src sesuai nama file foto profil Anda di folder public */}
                             <img
                                 src="/images/logo-profil.jfif"
                                 alt="Foto Profil"
@@ -133,7 +173,6 @@ export default function DashboardLayout({
                     </div>
                 </header>
 
-                {/* Main Content */}
                 <main className="p-5 md:p-[40px] flex-1">{children}</main>
             </div>
 
