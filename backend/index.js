@@ -121,6 +121,34 @@ app.post("/api/auth/forgot-password", async (req, res) => {
     }
 });
 
+// Endpoint Baru: Verifikasi Kode Reset Password
+app.post("/api/auth/verify-reset-code", async (req, res) => {
+    const { email, code } = req.body;
+    try {
+        const [rows] = await db.query(
+            "SELECT * FROM users WHERE email = ? AND reset_token = ?",
+            [email, code],
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Kode konfirmasi salah atau tidak valid!",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Kode konfirmasi valid!",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan pada server",
+        });
+    }
+});
+
 // Endpoint Reset Kata Sandi
 app.post("/api/auth/reset-password", async (req, res) => {
     const { email, code, newPassword, confirmPassword } = req.body;

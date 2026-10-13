@@ -62,7 +62,7 @@ export default function ResetKataSandiPage() {
         }
     };
 
-    const handleKonfirmasi = (e) => {
+    const handleKonfirmasi = async (e) => {
         e.preventDefault();
 
         if (!email || !code) {
@@ -81,7 +81,7 @@ export default function ResetKataSandiPage() {
             return;
         }
 
-        // VALIDASI DIPERBARUI: Minimal 6 digit
+        // VALIDASI: Minimal 6 digit
         if (code.length < 6) {
             setToast({
                 message: "Kode konfirmasi tidak valid! (Minimal 6 digit)",
@@ -90,9 +90,28 @@ export default function ResetKataSandiPage() {
             return;
         }
 
-        router.push(
-            `/sandi-baru?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`,
-        );
+        // INTEGRASI KE BACKEND: Verifikasi kode reset ke database
+        try {
+            const response = await axios.post(
+                "http://localhost:5000/api/auth/verify-reset-code",
+                { email, code },
+            );
+
+            if (response.data.success) {
+                // Jika kode valid di database, baru pindah ke halaman sandi baru
+                router.push(
+                    `/sandi-baru?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`,
+                );
+            }
+        } catch (error) {
+            // Jika kode salah atau random, tangkap error dari backend dan tampilkan Toast
+            setToast({
+                message:
+                    error.response?.data?.message ||
+                    "Kode konfirmasi salah atau tidak valid!",
+                type: "error",
+            });
+        }
     };
 
     return (
