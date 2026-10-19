@@ -2,55 +2,51 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import Toast from "@/components/Toast";
 
+interface ToastState {
+    message: string;
+    type: "success" | "error" | "info" | "warning";
+}
+
 export default function SandiBaruPage() {
-    const searchParams = useSearchParams();
+    const [newPassword, setNewPassword] = useState<string>("");
+    const [confirmPassword, setConfirmPassword] = useState<string>("");
+    const [showNewPass, setShowNewPass] = useState<boolean>(false);
+    const [showConfirmPass, setShowConfirmPass] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isExpired, setIsExpired] = useState<boolean>(false);
+    const [toast, setToast] = useState<ToastState | null>(null);
+
     const router = useRouter();
 
-    const [email, setEmail] = useState("");
-    const [code, setCode] = useState("");
-    const [newPassword, setNewPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-
-    const [showNewPass, setShowNewPass] = useState(false);
-    const [showConfirmPass, setShowConfirmPass] = useState(false);
-
-    const [toast, setToast] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isExpired, setIsExpired] = useState(false);
-
     useEffect(() => {
-        // 1. Cek apakah di memori browser status reset sudah selesai
         if (sessionStorage.getItem("reset_completed") === "true") {
             setIsExpired(true);
-            return;
         }
+    }, []);
 
-        const em = searchParams.get("email");
-        const cd = searchParams.get("code");
-
-        if (!em || !cd) {
-            setIsExpired(true);
-            return;
-        }
-
-        setEmail(em);
-        setCode(cd);
-    }, [searchParams]);
-
-    const handleKonfirmasiSandi = async (e) => {
+    const handleKonfirmasiSandi = async (
+        e: React.FormEvent<HTMLFormElement>,
+    ) => {
         e.preventDefault();
 
         if (newPassword !== confirmPassword) {
-            setToast({ message: "Sandi baru tidak cocok!", type: "error" });
+            setToast({
+                message: "Sandi dan konfirmasi sandi tidak cocok!",
+                type: "error",
+            });
             return;
         }
 
+        const email = sessionStorage.getItem("reset_email") || "";
+        const code = sessionStorage.getItem("reset_code") || "";
+
         setIsLoading(true);
+
         try {
             const response = await axios.post(
                 "http://localhost:5000/api/auth/reset-password",
@@ -63,32 +59,30 @@ export default function SandiBaruPage() {
             );
 
             if (response.data.success) {
-                // 1. Munculkan pop-up sukses terlebih dahulu
                 setToast({
                     message: "Sandi berhasil diperbarui!",
                     type: "success",
                 });
 
-                // 2. Kunci halaman agar jika di-back terdeteksi kadaluarsa
                 sessionStorage.setItem("reset_completed", "true");
 
-                // 3. Beri jeda 1.5 detik agar user sempat membaca pop-up, baru pindah ke login
                 setTimeout(() => {
                     router.replace("/login?resetSuccess=true");
                 }, 1500);
             }
-        } catch (error) {
+        } catch (error: unknown) {
+            let errorMsg = "Kode tidak valid atau kadaluarsa";
+            if (axios.isAxiosError(error) && error.response?.data?.message) {
+                errorMsg = error.response.data.message;
+            }
             setToast({
-                message:
-                    error.response?.data?.message ||
-                    "Kode tidak valid atau kadaluarsa",
+                message: errorMsg,
                 type: "error",
             });
-            setIsLoading(false); // Matikan loading hanya jika gagal
+            setIsLoading(false);
         }
     };
 
-    // Tampilan jika user memaksa kembali dari halaman Login
     if (isExpired) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
@@ -156,7 +150,9 @@ export default function SandiBaruPage() {
                                 type={showNewPass ? "text" : "password"}
                                 required
                                 value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
+                                onChange={(
+                                    e: React.ChangeEvent<HTMLInputElement>,
+                                ) => setNewPassword(e.target.value)}
                                 className="w-full bg-transparent border-b border-gray-600 focus:border-white text-white px-1 py-2 outline-none transition-colors pr-10"
                                 placeholder="Sandi Baru"
                             />
@@ -177,9 +173,9 @@ export default function SandiBaruPage() {
                                 type={showConfirmPass ? "text" : "password"}
                                 required
                                 value={confirmPassword}
-                                onChange={(e) =>
-                                    setConfirmPassword(e.target.value)
-                                }
+                                onChange={(
+                                    e: React.ChangeEvent<HTMLInputElement>,
+                                ) => setConfirmPassword(e.target.value)}
                                 className="w-full bg-transparent border-b border-gray-600 focus:border-white text-white px-1 py-2 outline-none transition-colors pr-10"
                                 placeholder="Konfirmasi Sandi Baru"
                             />

@@ -1,112 +1,97 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
-import { CheckSquare, ExternalLink, User, Users } from "lucide-react";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import {
+    LayoutDashboard,
+    Wallet,
+    BookOpen,
+    Users,
+    MessageSquare,
+    LogOut,
+} from "lucide-react";
 
-export default function DashboardPage() {
-    const [pemasukan, setPemasukan] = useState(400000);
-    const [pengeluaran, setPengeluaran] = useState(100000);
+export default function Sidebar() {
+    const router = useRouter();
+    const pathname = usePathname();
 
-    // Ambil data terbaru dari localStorage saat halaman dashboard dibuka
-    useEffect(() => {
-        const savedPemasukan = localStorage.getItem("museum_pemasukan");
-        const savedPengeluaran = localStorage.getItem("museum_pengeluaran");
+    // Fungsi untuk menangani proses Logout
+    const handleLogout = () => {
+        // 1. Hapus token dan role admin dari localStorage
+        localStorage.removeItem("adminToken");
+        localStorage.removeItem("adminRole");
 
-        if (savedPemasukan) setPemasukan(parseInt(savedPemasukan));
-        if (savedPengeluaran) setPengeluaran(parseInt(savedPengeluaran));
-    }, []);
+        // 2. Arahkan kembali (redirect) ke halaman login
+        router.push("/login");
+    };
+
+    // Daftar menu navigasi
+    const menuItems = [
+        { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { name: "Keuangan", href: "/dashboard/keuangan", icon: Wallet },
+        { name: "Koleksi Sejarah", href: "/dashboard/koleksi", icon: BookOpen },
+        { name: "Data User", href: "/dashboard/users", icon: Users },
+        { name: "Feed Back", href: "/dashboard/feedback", icon: MessageSquare },
+    ];
 
     return (
-        <div className="w-full max-w-[1100px] animate-in fade-in duration-500">
-            <div className="mb-8">
-                <h2 className="text-[24px] font-bold text-black mb-6">
-                    Keuangan
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Kartu Uang Masuk */}
-                    <Link
-                        href="/dashboard/keuangan"
-                        className="bg-[#222222] rounded-[24px] p-6 flex flex-col justify-between min-h-[160px] no-underline hover:scale-[1.02] transition-transform">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-white font-bold text-[18px]">
-                                    Uang Masuk
-                                </h3>
-                                <p className="text-[#a3a3a3] text-[13px] mt-2 font-medium">
-                                    10 / 7 / 2026
-                                </p>
-                            </div>
-                            <CheckSquare className="text-[#00ff1a] w-6 h-6 stroke-[2]" />
-                        </div>
-                        <p className="text-white font-bold text-[24px] mt-6">
-                            Rp. {pemasukan.toLocaleString("id-ID")}
-                        </p>
-                    </Link>
-
-                    {/* Kartu Uang Keluar */}
-                    <Link
-                        href="/dashboard/keuangan"
-                        className="bg-[#222222] rounded-[24px] p-6 flex flex-col justify-between min-h-[160px] no-underline hover:scale-[1.02] transition-transform">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-white font-bold text-[18px]">
-                                    Uang Keluar
-                                </h3>
-                                <p className="text-[#a3a3a3] text-[13px] mt-2 font-medium">
-                                    10 / 7 / 2026
-                                </p>
-                            </div>
-                            <ExternalLink className="text-[#ff0810] w-6 h-6 stroke-[2]" />
-                        </div>
-                        <p className="text-white font-bold text-[24px] mt-6">
-                            Rp. {pengeluaran.toLocaleString("id-ID")}
-                        </p>
-                    </Link>
-
-                    {/* Kartu Total Pengunjung */}
-                    <div className="bg-[#222222] rounded-[24px] p-6 flex flex-col justify-between min-h-[160px]">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-white font-bold text-[18px]">
-                                    Total Pengunjung
-                                </h3>
-                                <p className="text-[#a3a3a3] text-[13px] mt-2 font-medium">
-                                    10 / 7 / 2026
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 text-white font-bold text-[24px] mt-6">
-                            <Users className="w-6 h-6 text-white" />
-                            <span>40 Orang</span>
-                        </div>
+        <aside className="w-64 min-h-screen bg-black text-white flex flex-col justify-between p-6 border-r border-gray-800">
+            <div>
+                {/* Logo & Judul Museum */}
+                <div className="flex items-center gap-3 mb-10">
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white/10">
+                        <Image
+                            src="/images/Museum_Brawijaya_1.jpg"
+                            alt="Logo Museum"
+                            fill
+                            className="object-cover"
+                        />
                     </div>
-                </div>
-            </div>
-
-            {/* Bagian Bawah Dashboard (Data User & Feedback) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-                <div className="bg-[#222222] rounded-[24px] p-6 text-white">
-                    <h3 className="text-[18px] font-bold mb-4">Data User</h3>
-                    <p className="text-white/70 text-[14px]">Total User 60</p>
-                    <div className="mt-6 flex flex-col gap-3">
-                        <div className="flex items-center gap-3 text-green-400 font-semibold text-[14px]">
-                            <User className="w-5 h-5" /> 10 User Aktif
-                        </div>
-                        <div className="flex items-center gap-3 text-red-400 font-semibold text-[14px]">
-                            <User className="w-5 h-5" /> 50 User Tidak Aktif
-                        </div>
-                    </div>
-                </div>
-
-                <div className="bg-[#222222] rounded-[24px] p-6 text-white flex flex-col justify-between">
-                    <h3 className="text-[18px] font-bold mb-2">Feed Back</h3>
                     <div>
-                        <p className="text-white/70 text-[14px]">Ulasan</p>
-                        <p className="text-[40px] font-bold mt-2">50</p>
+                        <h2 className="font-bold text-base leading-tight text-white">
+                            Museum
+                        </h2>
+                        <p className="text-amber-500 text-sm font-semibold">
+                            Brawijaya
+                        </p>
                     </div>
                 </div>
+
+                <hr className="border-gray-800 mb-6" />
+
+                {/* Navigasi Menu */}
+                <nav className="flex flex-col gap-2">
+                    {menuItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = pathname === item.href;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`flex items-center gap-4 px-4 py-3 rounded-2xl transition-all font-medium text-sm ${
+                                    isActive
+                                        ? "bg-[#222222] text-white shadow-md"
+                                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                                }`}>
+                                <Icon className="w-5 h-5" />
+                                <span>{item.name}</span>
+                            </Link>
+                        );
+                    })}
+                </nav>
             </div>
-        </div>
+
+            {/* Tombol Keluar (Logout) di Bagian Bawah */}
+            <div>
+                <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-500/10 transition-colors font-medium text-sm">
+                    <LogOut className="w-5 h-5" />
+                    <span>Keluar</span>
+                </button>
+            </div>
+        </aside>
     );
 }

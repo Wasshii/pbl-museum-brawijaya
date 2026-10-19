@@ -7,25 +7,32 @@ import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import Toast from "@/components/Toast";
 
+// 1. Tipe data untuk objek Toast Notification
+interface ToastState {
+    message: string;
+    type: "success" | "error" | "info" | "warning";
+}
+
 export default function LoginPage() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [showPassword, setShowPassword] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [email, setEmail] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [showPassword, setShowPassword] = useState<boolean>(false);
+    const [errorMsg, setErrorMsg] = useState<string>("");
+    const [isLoading, setIsLoading] = useState<boolean>(false);
 
-    // State dan Search Params untuk deteksi sukses reset kata sandi
+    // Search Params
     const searchParams = useSearchParams();
-    const [toast, setToast] = useState(null);
 
-    // Mengecek parameter ?resetSuccess=true saat komponen dimuat
+    // 2. Berikan penjelas tipe data ToastState | null pada useState
+    const [toast, setToast] = useState<ToastState | null>(null);
+
     useEffect(() => {
         if (searchParams.get("resetSuccess") === "true") {
             setToast({
                 message: "Sandi berhasil diperbarui!",
                 type: "success",
             });
-            // Membersihkan URL agar parameter hilang saat halaman direfresh
+
             window.history.replaceState(
                 {},
                 document.title,
@@ -34,7 +41,8 @@ export default function LoginPage() {
         }
     }, [searchParams]);
 
-    const handleLogin = async (e) => {
+    // 3. Penentuan tipe data pada parameter event form submission
+    const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setErrorMsg("");
         setIsLoading(true);
@@ -49,7 +57,6 @@ export default function LoginPage() {
             );
 
             if (response.data.success) {
-                // Pengecekan peran (role) pengguna sesuai alur autentikasi
                 const role = (
                     response.data.role ||
                     response.data.data?.role ||
@@ -68,19 +75,22 @@ export default function LoginPage() {
                 if (role) {
                     localStorage.setItem("adminRole", role);
                 }
+
                 setToast({
                     message: response.data.message || "Login berhasil",
                     type: "success",
                 });
 
-                // Beri jeda sebentar agar animasi toast terlihat sebelum pindah halaman
                 setTimeout(() => {
                     window.location.href = "/dashboard";
                 }, 1500);
             }
-        } catch (error) {
-            if (error.response) {
-                setErrorMsg(error.response.data.message);
+        } catch (error: unknown) {
+            // 4. Pengecekan Axios Error secara aman di TypeScript
+            if (axios.isAxiosError(error) && error.response) {
+                setErrorMsg(
+                    error.response.data.message || "Gagal melakukan login",
+                );
             } else {
                 setErrorMsg("Terjadi kesalahan pada server");
             }
@@ -91,7 +101,7 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-black flex items-center justify-center p-4">
-            {/* Tampilkan Toast Notifikasi */}
+            {/* Toast Notification */}
             {toast && (
                 <Toast
                     message={toast.message}
@@ -140,7 +150,9 @@ export default function LoginPage() {
                                 type="email"
                                 required
                                 value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                onChange={(
+                                    e: React.ChangeEvent<HTMLInputElement>,
+                                ) => setEmail(e.target.value)}
                                 className="w-full bg-transparent border-b border-gray-600 focus:border-white text-white px-2 py-3 outline-none transition-colors"
                                 placeholder="Email"
                             />
@@ -151,7 +163,9 @@ export default function LoginPage() {
                                 type={showPassword ? "text" : "password"}
                                 required
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={(
+                                    e: React.ChangeEvent<HTMLInputElement>,
+                                ) => setPassword(e.target.value)}
                                 className="w-full bg-transparent border-b border-gray-600 focus:border-white text-white px-2 py-3 outline-none transition-colors"
                                 placeholder="Password"
                             />
