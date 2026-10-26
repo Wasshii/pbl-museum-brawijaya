@@ -8,15 +8,18 @@ import React, {
     useRef,
     useCallback,
 } from "react";
-import { CheckCircle2, Trash2, Edit3, Plus, X } from "lucide-react";
-
-export type ToastType = "create" | "edit" | "delete" | "success";
-
-export interface ToastOptions {
-    type?: ToastType;
-    title: string;
-    message: string;
-}
+import type { ToastOptions, ToastType } from "@/types/toast";
+import {
+    AlertCircle,
+    AlertTriangle,
+    CheckCircle2,
+    Edit3,
+    Info,
+    Plus,
+    Trash2,
+    X,
+    type LucideIcon,
+} from "lucide-react";
 
 interface ToastItem extends ToastOptions {
     id: number;
@@ -32,6 +35,54 @@ const ToastContext = createContext<ToastContextValue>({
 });
 
 export const useToast = () => useContext(ToastContext);
+
+const TOAST_STYLE: Record<
+    ToastType,
+    { icon: LucideIcon; iconColor: string; badge: string; bar: string }
+> = {
+    create: {
+        icon: Plus,
+        iconColor: "text-emerald-400",
+        badge: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
+        bar: "bg-emerald-500",
+    },
+    edit: {
+        icon: Edit3,
+        iconColor: "text-blue-400",
+        badge: "bg-blue-500/15 border-blue-500/30 text-blue-400",
+        bar: "bg-blue-500",
+    },
+    delete: {
+        icon: Trash2,
+        iconColor: "text-rose-400",
+        badge: "bg-rose-500/15 border-rose-500/30 text-rose-400",
+        bar: "bg-rose-500",
+    },
+    success: {
+        icon: CheckCircle2,
+        iconColor: "text-emerald-400",
+        badge: "bg-emerald-500/15 border-emerald-500/30 text-emerald-400",
+        bar: "bg-emerald-500",
+    },
+    error: {
+        icon: AlertCircle,
+        iconColor: "text-red-400",
+        badge: "bg-red-500/15 border-red-500/30 text-red-400",
+        bar: "bg-red-500",
+    },
+    warning: {
+        icon: AlertTriangle,
+        iconColor: "text-yellow-400",
+        badge: "bg-yellow-500/15 border-yellow-500/30 text-yellow-400",
+        bar: "bg-yellow-500",
+    },
+    info: {
+        icon: Info,
+        iconColor: "text-blue-400",
+        badge: "bg-blue-500/15 border-blue-500/30 text-blue-400",
+        bar: "bg-blue-500",
+    },
+};
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
     const [toast, setToast] = useState<ToastItem | null>(null);
@@ -64,7 +115,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
             setToast(newToast);
 
-            // Bertahan selama 3 detik di tengah, kemudian mulai slide keluar ke kanan
+            // Bertahan selama 3 detik di layar, kemudian mulai slide keluar ke kanan
             exitTimerRef.current = setTimeout(() => {
                 setToast((prev) =>
                     prev ? { ...prev, isExiting: true } : null,
@@ -77,58 +128,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         [],
     );
 
-    const getIcon = (type: ToastType = "success") => {
-        switch (type) {
-            case "create":
-                return (
-                    <Plus className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
-                );
-            case "edit":
-                return <Edit3 className="w-5 h-5 text-blue-400 stroke-[2.5]" />;
-            case "delete":
-                return (
-                    <Trash2 className="w-5 h-5 text-rose-400 stroke-[2.5]" />
-                );
-            case "success":
-            default:
-                return (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 stroke-[2.5]" />
-                );
-        }
-    };
-
-    const getBadgeStyle = (type: ToastType = "success") => {
-        switch (type) {
-            case "create":
-                return "bg-emerald-500/15 border-emerald-500/30 text-emerald-400";
-            case "edit":
-                return "bg-blue-500/15 border-blue-500/30 text-blue-400";
-            case "delete":
-                return "bg-rose-500/15 border-rose-500/30 text-rose-400";
-            case "success":
-            default:
-                return "bg-emerald-500/15 border-emerald-500/30 text-emerald-400";
-        }
-    };
-
-    const getProgressColor = (type: ToastType = "success") => {
-        switch (type) {
-            case "create":
-                return "bg-emerald-500";
-            case "edit":
-                return "bg-blue-500";
-            case "delete":
-                return "bg-rose-500";
-            case "success":
-            default:
-                return "bg-emerald-500";
-        }
-    };
+    const currentStyle = toast ? TOAST_STYLE[toast.type || "success"] : null;
+    const IconComponent = currentStyle ? currentStyle.icon : CheckCircle2;
 
     return (
         <ToastContext.Provider value={{ notify }}>
             {children}
-            {toast && (
+            {toast && currentStyle && (
                 <div
                     key={toast.id}
                     className={`fixed top-6 right-6 z-[9999] w-full max-w-[380px] bg-[#1a1a1a] text-white rounded-[20px] shadow-2xl border border-white/10 overflow-hidden select-none pointer-events-auto ${
@@ -137,10 +143,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     style={{ willChange: "transform, opacity" }}>
                     <div className="p-4 flex items-start gap-3.5">
                         <div
-                            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${getBadgeStyle(
-                                toast.type,
-                            )}`}>
-                            {getIcon(toast.type)}
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${currentStyle.badge}`}>
+                            <IconComponent
+                                className={`w-5 h-5 stroke-[2.5] ${currentStyle.iconColor}`}
+                            />
                         </div>
                         <div className="flex-1 min-w-0 pt-0.5">
                             <h4 className="text-[14px] font-bold text-white tracking-tight leading-snug">
@@ -160,9 +166,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     {!toast.isExiting && (
                         <div className="w-full bg-white/10 h-1 overflow-hidden">
                             <div
-                                className={`h-full toast-progress-bar ${getProgressColor(
-                                    toast.type,
-                                )}`}
+                                className={`h-full toast-progress-bar ${currentStyle.bar}`}
                             />
                         </div>
                     )}
