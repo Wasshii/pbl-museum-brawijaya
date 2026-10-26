@@ -507,7 +507,7 @@ export default function KeuanganPage() {
         notify({
             type: "create",
             title: "Transaksi Berhasil Ditambahkan!",
-            message: `Data transaksi untuk ${pembeliNama} (${numTiket} tiket) senilai Rp ${nominalIsi} berhasil dicatat.`,
+            message: `Data transaksi untuk pembeliNama({numTiket} tiket) senilai Rp ${nominalIsi} berhasil dicatat.`,
         });
     };
 
@@ -734,8 +734,14 @@ export default function KeuanganPage() {
                         <Search className="w-4 h-4 text-white/80 shrink-0" />
                         <input
                             type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={searchIdTrx}
-                            onChange={(e) => setSearchIdTrx(e.target.value)}
+                            onChange={(e) =>
+                                setSearchIdTrx(
+                                    e.target.value.replace(/\D/g, ""),
+                                )
+                            }
                             placeholder="Cari Id Trx..."
                             className="bg-transparent border-none outline-none text-[13px] font-semibold text-white w-full placeholder:text-white/60"
                         />

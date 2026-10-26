@@ -169,7 +169,7 @@ const initialData = [
 export default function KoleksiSejarahPage() {
     const [dataKoleksi, setDataKoleksi] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
-    const [isEditMode, setIsEditMode] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(true);
 
     // Modal States
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -367,12 +367,9 @@ export default function KoleksiSejarahPage() {
 
             {/* --- KOTAK TABEL DENGAN SCROLL GLASS --- */}
             {/* Jika mode Edit aktif, tambahkan border biru seperti di mockup */}
-            <div
-                className={`bg-white rounded-[24px] shadow-sm overflow-hidden w-full transition-all duration-300 border border-gray-100 ${
-                    isEditMode ? "ring-4 ring-blue-500/80" : ""
-                }`}>
-                {/* 
-                    max-h-[460px]: Membatasi tinggi tabel agar bisa di-scroll 
+            <div className="bg-white rounded-[24px] shadow-sm overflow-hidden w-full transition-all duration-300 border border-gray-100">
+                {/*
+                    max-h-[460px]: Membatasi tinggi tabel agar bisa di-scroll
                     overflow-y-auto: Menampilkan scrollbar vertikal
                     glass-scroll: Memanggil CSS custom scrollbar efek glass
                     Tanpa padding top/horizontal pada scroll container agar header sticky tepat di bibir atas tanpa celah
@@ -397,13 +394,7 @@ export default function KoleksiSejarahPage() {
                                     Detail
                                 </th>
                                 <th className="py-4 pl-4 pr-6 font-bold text-black text-[15px] border-b border-black text-center bg-white">
-                                    <button
-                                        onClick={() =>
-                                            setIsEditMode(!isEditMode)
-                                        }
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-[13px] transition-colors cursor-pointer font-semibold shadow-sm">
-                                        {isEditMode ? "Selesai" : "Edit"}
-                                    </button>
+                                    Edit
                                 </th>
                             </tr>
                         </thead>
