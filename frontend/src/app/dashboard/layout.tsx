@@ -1,8 +1,8 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { ToastProvider } from "@/context/ToastContext";
 import { usePathname, useRouter } from "next/navigation";
+import { useToast } from "@/context/ToastContext";
 import {
     ArrowRight,
     Bell,
@@ -38,22 +38,29 @@ export default function DashboardLayout({
 
     // --- PROTEKSI RUTE (Route Guard) MENGGUNAKAN TOKEN ---
     useEffect(() => {
+        // Cek apakah adminToken (yang di-set di login.tsx) ada di localStorage
         const token = localStorage.getItem("adminToken");
 
         if (!token) {
+            // Jika tidak ada token (belum login atau sudah logout), lempar ke halaman login
             router.replace("/login");
         } else {
+            // Jika token ada, izinkan render halaman dashboard
             setIsLoading(false);
         }
     }, [router]);
 
     // --- FUNGSI LOGOUT (KELUAR) ---
     const handleLogout = () => {
+        // 1. Hapus token dan data yang di-set saat login
         localStorage.removeItem("adminToken");
         localStorage.removeItem("adminRole");
+
+        // 2. Arahkan pengguna kembali ke halaman login (menghapus riwayat dashboard)
         router.replace("/login");
     };
 
+    // Tampilkan layar kosong/loading selama pengecekan token berlangsung
     if (isLoading) return <div className="min-h-screen bg-[#f5f5f5]" />;
 
     return (
@@ -65,6 +72,7 @@ export default function DashboardLayout({
                         ? "translate-x-0"
                         : "-translate-x-full md:translate-x-0"
                 }`}>
+                {/* BRAND / LOGO SIDEBAR */}
                 <div className="flex items-center justify-between px-[2px]">
                     <Link href="/dashboard" className="flex items-center gap-3">
                         <div className="bg-white rounded-lg p-1 flex items-center justify-center">
@@ -84,6 +92,7 @@ export default function DashboardLayout({
                         </div>
                     </Link>
 
+                    {/* Tombol Close Mobile */}
                     <button
                         className="md:hidden w-[29px] h-[29px] border-2 border-white rounded-[6px] bg-transparent p-0 flex items-center justify-center cursor-pointer ml-auto"
                         onClick={() => setSidebarOpen(false)}>
@@ -94,6 +103,7 @@ export default function DashboardLayout({
 
                 <div className="h-[1px] bg-[#a1a1a1] my-[34px] opacity-90" />
 
+                {/* MENU NAVIGASI */}
                 <nav className="flex flex-col gap-[16px]">
                     {navigation.map(({ label, href, icon: Icon }) => {
                         const isActive = pathname === href;
@@ -114,6 +124,7 @@ export default function DashboardLayout({
                     })}
                 </nav>
 
+                {/* TOMBOL KELUAR */}
                 <button
                     onClick={handleLogout}
                     className="mt-auto text-[#ff4c4c] hover:text-red-400 hover:bg-[#222] rounded-full flex items-center gap-[20px] bg-transparent border-0 p-[15px_20px] cursor-pointer self-start transition-colors w-full">
@@ -122,6 +133,7 @@ export default function DashboardLayout({
                 </button>
             </aside>
 
+            {/* Overlay Mobile */}
             {sidebarOpen && (
                 <div
                     className="md:hidden fixed inset-0 bg-black/60 z-30"
@@ -129,6 +141,7 @@ export default function DashboardLayout({
                 />
             )}
 
+            {/* --- MAIN CONTENT AREA --- */}
             <div className="min-w-0 flex-1 flex flex-col h-screen overflow-y-auto">
                 <header className="sticky top-0 z-20 bg-[#f5f5f5] h-[90px] border-b border-[#dddddd] flex items-center justify-between px-5 md:px-[40px]">
                     <div className="flex items-center gap-4">
@@ -162,6 +175,7 @@ export default function DashboardLayout({
                 <main className="p-5 md:p-[40px] flex-1">{children}</main>
             </div>
 
+            {/* --- POP-UP NOTIFIKASI --- */}
             {notificationsOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-md p-4 animate-in fade-in duration-200">
                     <div
