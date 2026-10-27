@@ -10,7 +10,7 @@ export interface LoginPayload {
 
 export interface LoginResponse extends ApiResponse {
     token: string;
-    role: string;
+    user: { email: string; role: string };
 }
 
 export interface ForgotPasswordPayload {

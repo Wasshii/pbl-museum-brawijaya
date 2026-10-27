@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/context/ToastContext";
@@ -13,6 +14,7 @@ export function useLogin() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { notify } = useToast();
+
     const [form, setForm] = useState<LoginPayload>({ email: "", password: "" });
     const [errors, setErrors] = useState<FieldErrors<LoginPayload>>({});
     const [loading, setLoading] = useState(false);
@@ -24,45 +26,53 @@ export function useLogin() {
                 title: "Berhasil",
                 message: "Sandi berhasil diperbarui!",
             });
+            router.replace("/login");
         }
-        router.replace("/login");
     }, [searchParams, notify, router]);
 
     const submit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+
         const hasil = loginSchema.safeParse(form);
         if (!hasil.success) {
             setErrors(toFieldErrors<LoginPayload>(hasil.error));
             return;
         }
+
         setErrors({});
         setLoading(true);
+
         try {
             const res = await authService.login(hasil.data);
-            const role = (res.role ?? "").toLowerCase();
+            const role = (res.user?.role ?? "").toLowerCase();
+
             if (role !== "admin") {
                 notify({
                     type: "error",
                     title: "Akses ditolak",
                     message: "Akun ini bukan merupakan Admin.",
                 });
+                setLoading(false);
                 return;
             }
+
             saveSession(res.token, role);
             notify({
                 type: "success",
                 title: "Berhasil",
                 message: res.message || "Login berhasil",
             });
-            setTimeout(() => router.replace("/dashboard"), 1500);
+
+            // Biarkan loading tetap true selama jeda 1.5 detik menuju dashboard
+            setTimeout(() => {
+                router.replace("/dashboard");
+            }, 1500);
         } catch (error) {
             notify({
                 type: "error",
                 title: "Login gagal",
                 message: getErrorMessage(error, "Gagal melakukan login"),
             });
-            setLoading(false);
-        } finally {
             setLoading(false);
         }
     };
