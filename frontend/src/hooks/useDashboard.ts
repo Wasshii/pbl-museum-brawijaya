@@ -1,42 +1,35 @@
 "use client";
-import { useEffect, useState } from "react";
-import { getFeedbacks } from "@/services/feedback.service";
-import { getRingkasan, getTransaksiMasuk } from "@/services/keuangan.service";
-import { getUsers } from "@/services/user.service";
-import type { RingkasanKeuangan } from "@/types/keuangan";
-
-const AWAL = {
-    ringkasan: { totalPemasukan: 0, totalPengeluaran: 0 } as RingkasanKeuangan,
-    totalPengunjung: 0,
-    totalUser: 0,
-    userAktif: 0,
-    totalFeedback: 0,
-};
+import { useState, useEffect } from "react";
 
 export function useDashboard() {
-    const [data, setData] = useState(AWAL);
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalUser: 0,
+        totalKoleksi: 0,
+        saldoKeuangan: 0,
+        totalUlasan: 0,
+    });
 
     useEffect(() => {
-        let active = true;
-        Promise.all([
-            getRingkasan(),
-            getTransaksiMasuk(),
-            getUsers(),
-            getFeedbacks(),
-        ]).then(([ringkasan, masuk, users, feedbacks]) => {
-            if (!active) return;
-            setData({
-                ringkasan,
-                totalPengunjung: masuk.reduce((total, t) => total + t.tiket, 0),
-                totalUser: users.length,
-                userAktif: users.filter((u) => u.status === "Online").length,
-                totalFeedback: feedbacks.length,
+        // Simulasi fetch data statistik untuk Dashboard
+        setTimeout(() => {
+            setStats({
+                totalUser: 125,
+                totalKoleksi: 48,
+                saldoKeuangan: 15500000,
+                totalUlasan: 320,
             });
-        });
-        return () => {
-            active = false;
-        };
+            setLoading(false);
+        }, 500);
     }, []);
 
-    return data;
+    const formatRupiah = (angka: number) => {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            minimumFractionDigits: 0,
+        }).format(angka);
+    };
+
+    return { stats, loading, formatRupiah };
 }
