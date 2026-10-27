@@ -87,7 +87,7 @@ export default function SejarahPage() {
                 isOpen={modalDeleteOpen}
                 onClose={() => setModalDeleteOpen(false)}
                 onConfirm={confirmDelete}
-                itemName={selectedItem?.nama_koleksi}
+                itemName={selectedItem?.nama_koleksi ?? ""}
             />
         </div>
     );

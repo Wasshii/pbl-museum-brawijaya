@@ -11,4 +11,11 @@ export interface User {
     avatar: string;
 }
 
-export type UserFormValues = Omit<User, "id" | "createdAt" | "avatar">;
+// Isian form Tambah User (id, tanggal dibuat, dan avatar dibuat oleh sistem)
+export type UserFormValues = Pick<
+    User,
+    "name" | "phone" | "email" | "address" | "status"
+>;
+
+// Isian form Edit User (tanggal dibuat ikut bisa diedit, sesuai kode asli)
+export type UserEditValues = UserFormValues & Pick<User, "createdAt">;

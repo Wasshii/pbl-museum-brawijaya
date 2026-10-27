@@ -1,92 +1,129 @@
 "use client";
-import { Eye, Edit, Trash2 } from "lucide-react";
 
-// Struktur data user menyesuaikan dari database-mu
-interface UserData {
-    id_user: number;
-    username: string;
-    email: string;
-    no_telp: string;
-    role: string;
-}
+import { ArrowRight, Edit3, Trash2 } from "lucide-react";
+import StatusBadge from "@/components/user/StatusBadge";
+import UserAvatar from "@/components/user/UserAvatar";
+import type { User } from "@/types/user";
 
 interface Props {
-    users: UserData[];
-    onView: (user: UserData) => void;
-    onEdit: (user: UserData) => void;
-    onDelete: (id: number) => void;
+    users: User[];
+    isEditMode: boolean;
+    onToggleEditMode: () => void;
+    onDetail: (user: User) => void;
+    onEdit: (user: User) => void;
+    onDelete: (user: User) => void;
 }
 
-export default function UserTable({ users, onView, onEdit, onDelete }: Props) {
+const TH =
+    "py-4 px-4 font-bold text-black whitespace-nowrap text-[14px] bg-white";
+
+export default function UserTable({
+    users,
+    isEditMode,
+    onToggleEditMode,
+    onDetail,
+    onEdit,
+    onDelete,
+}: Props) {
     return (
-        <div className="bg-white rounded-[20px] shadow-sm overflow-hidden mt-6 overflow-x-auto">
-            <table className="w-full min-w-[800px] border-collapse">
-                <thead>
-                    <tr className="bg-[#6C9E78] text-white text-left">
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            No
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            Nama
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            Email
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            No. HP
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            Role
-                        </th>
-                        <th className="py-4 px-6 font-semibold text-center whitespace-nowrap">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {users.map((user, index) => (
-                        <tr
-                            key={user.id_user}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td className="py-4 px-6">{index + 1}</td>
-                            <td className="py-4 px-6">{user.username}</td>
-                            <td className="py-4 px-6">{user.email}</td>
-                            <td className="py-4 px-6">{user.no_telp}</td>
-                            <td className="py-4 px-6 capitalize">
-                                {user.role}
-                            </td>
-                            <td className="py-4 px-6">
-                                <div className="flex items-center justify-center gap-3">
-                                    <button
-                                        onClick={() => onView(user)}
-                                        className="bg-[#4a8a5b] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Eye className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => onEdit(user)}
-                                        className="bg-[#f0ad4e] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Edit className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(user.id_user)}
-                                        className="bg-[#d9534f] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </td>
+        <div className="bg-white rounded-[24px] shadow-sm overflow-hidden border border-gray-100 flex flex-col">
+            {/* max-h + overflow: tabel bisa di-scroll; glass-scroll: gaya scrollbar (ada di globals.css) */}
+            <div className="max-h-[460px] overflow-y-auto overflow-x-auto glass-scroll">
+                <table className="w-full text-left border-collapse min-w-[750px] font-sans">
+                    <thead className="sticky top-0 z-20 bg-white shadow-[0_1px_0_0_#f0f0f0]">
+                        <tr className="bg-white">
+                            <th className="py-4 pl-6 pr-4 font-bold text-black whitespace-nowrap text-[14px] bg-white">
+                                Nama User
+                            </th>
+                            <th className={TH}>Nomer Telepon</th>
+                            <th className={TH}>Email</th>
+                            <th className={TH}>Status</th>
+                            <th className={`${TH} text-center`}>Detail</th>
+                            <th className="py-4 pl-4 pr-6 font-bold text-black whitespace-nowrap text-right bg-white">
+                                <button
+                                    onClick={onToggleEditMode}
+                                    className={`px-6 py-1.5 rounded-full font-bold text-white transition-colors cursor-pointer text-[13px] shadow-sm ${
+                                        isEditMode
+                                            ? "bg-red-500 hover:bg-red-600"
+                                            : "bg-blue-600 hover:bg-blue-700"
+                                    }`}>
+                                    {isEditMode ? "Batal" : "Edit"}
+                                </button>
+                            </th>
                         </tr>
-                    ))}
-                    {users.length === 0 && (
-                        <tr>
-                            <td
-                                colSpan={6}
-                                className="py-12 text-center text-gray-500 font-medium">
-                                Tidak ada data user yang ditemukan.
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {users.length > 0 ? (
+                            users.map((user) => (
+                                <tr
+                                    key={user.id}
+                                    className="border-b border-gray-100 hover:bg-gray-50/80 transition-colors">
+                                    <td className="py-4 pl-6 pr-4 text-black font-semibold text-[14px]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                                                <UserAvatar
+                                                    src={user.avatar}
+                                                    alt={user.name}
+                                                />
+                                            </div>
+                                            <span>{user.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="py-4 px-4 text-gray-700 font-medium text-[14px]">
+                                        {user.phone}
+                                    </td>
+                                    <td className="py-4 px-4 text-gray-700 font-medium text-[14px]">
+                                        {user.email}
+                                    </td>
+                                    <td className="py-4 px-4 font-bold text-[13px]">
+                                        <StatusBadge
+                                            status={user.status}
+                                            withDot
+                                        />
+                                    </td>
+                                    <td className="py-4 px-4 text-center">
+                                        <button
+                                            onClick={() => onDetail(user)}
+                                            className="text-black hover:text-gray-600 hover:scale-110 transition-transform cursor-pointer p-1.5 rounded-lg hover:bg-gray-100 border-0 bg-transparent"
+                                            title="Lihat Detail User">
+                                            <ArrowRight className="w-5 h-5" />
+                                        </button>
+                                    </td>
+                                    <td className="py-4 pl-4 pr-6 text-right">
+                                        {/* Tombol Hapus & Edit hanya muncul saat mode edit aktif */}
+                                        {isEditMode && (
+                                            <div className="flex items-center justify-end gap-2 animate-in fade-in duration-200">
+                                                <button
+                                                    onClick={() =>
+                                                        onDelete(user)
+                                                    }
+                                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
+                                                    title="Hapus User">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => onEdit(user)}
+                                                    className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer border-0 bg-transparent"
+                                                    title="Edit User">
+                                                    <Edit3 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td
+                                    colSpan={6}
+                                    className="py-12 text-center text-gray-500 font-semibold text-[14px]">
+                                    Data user tidak ditemukan.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

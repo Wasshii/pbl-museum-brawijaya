@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import * as userService from "@/services/user.service";
@@ -10,7 +11,8 @@ export function useUsers() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
 
-    // Data dibaca setelah komponen tampil
+    // Data dibaca setelah komponen tampil (bukan di dalam useState) supaya
+    // hasil render di server dan di browser sama, tidak memicu hydration mismatch.
     useEffect(() => {
         let active = true;
         userService.getUsers().then((data) => {
@@ -23,8 +25,9 @@ export function useUsers() {
         };
     }, []);
 
-    const q = search.toLowerCase();
-    const filtered = useMemo(() => {
+    // Filter pencarian: nama, email, atau nomor telepon
+    const filteredUsers = useMemo(() => {
+        const q = search.toLowerCase();
         return users.filter(
             (u) =>
                 u.name.toLowerCase().includes(q) ||
@@ -64,8 +67,7 @@ export function useUsers() {
     };
 
     return {
-        users: filtered,
-        totalUsers: users.length,
+        users: filteredUsers,
         loading,
         search,
         setSearch,

@@ -16,8 +16,9 @@ export const NAVIGATION = [
 
 export const DEFAULT_KOLEKSI_IMAGE =
     "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80";
+
 export const DEFAULT_AVATAR =
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80";
 
-// Sementara: nama admin ditulis di 4 tempat. Nanti diganti data dari login/profil.
+// Sementara, nanti diganti data dari login/profil
 export const ADMIN_NAME = "Alexandro Vosca";
