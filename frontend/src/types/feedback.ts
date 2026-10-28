@@ -1,11 +1,8 @@
-export type StatusFeedback = "Telah Di Balas" | "Belum Di Balas";
-
-export interface Feedback {
+export interface FeedbackData {
     id: number;
-    name: string;
-    review: string;
+    nama_user: string;
     rating: number;
-    status: StatusFeedback;
-    replyText?: string;
-    date: string;
+    komentar: string;
+    tanggal: string;
+    balasan: string | null;
 }

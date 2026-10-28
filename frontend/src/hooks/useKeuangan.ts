@@ -1,16 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
-import { api } from "@/lib/api";
-
-export interface TransaksiData {
-    id: number;
-    tanggal: string;
-    deskripsi: string;
-    tipe: "pemasukan" | "pengeluaran";
-    jumlah: number;
-    status: "berhasil" | "pending" | "gagal";
-}
+import * as keuanganService from "@/services/keuangan.service";
+import type { TransaksiData, TransaksiInput } from "@/types/keuangan";
 
 export function useKeuangan() {
     const { notify } = useToast();
@@ -20,22 +12,22 @@ export function useKeuangan() {
     const [searchQuery, setSearchQuery] = useState("");
 
     const [modalFormOpen, setModalFormOpen] = useState(false);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<TransaksiInput>({
         tipe: "pemasukan",
-        jumlah: "",
+        jumlah: 0,
         deskripsi: "",
     });
 
     const fetchKeuangan = async () => {
         setLoading(true);
         try {
-            const response = await api.get("/api/keuangan");
-            setTransaksi(response.data.data);
+            const data = await keuanganService.getKeuangan();
+            setTransaksi(data);
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Gagal memuat data keuangan dari server",
+                message: "Gagal memuat data keuangan",
             });
         } finally {
             setLoading(false);
@@ -50,7 +42,6 @@ export function useKeuangan() {
         item.deskripsi.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-    // Perhitungan Ringkasan (Berdasarkan data MySQL)
     const totalPemasukan = transaksi
         .filter((t) => t.tipe === "pemasukan")
         .reduce((acc, curr) => acc + curr.jumlah, 0);
@@ -60,18 +51,14 @@ export function useKeuangan() {
     const totalSaldo = totalPemasukan - totalPengeluaran;
 
     const handleAdd = () => {
-        setFormData({ tipe: "pemasukan", jumlah: "", deskripsi: "" });
+        setFormData({ tipe: "pemasukan", jumlah: 0, deskripsi: "" });
         setModalFormOpen(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Logika Validasi Tambahan: Cegah minus
-        if (
-            formData.tipe === "pengeluaran" &&
-            Number(formData.jumlah) > totalSaldo
-        ) {
+        if (formData.tipe === "pengeluaran" && formData.jumlah > totalSaldo) {
             notify({
                 type: "error",
                 title: "Saldo Kurang",
@@ -82,24 +69,19 @@ export function useKeuangan() {
 
         setLoading(true);
         try {
-            await api.post("/api/keuangan", {
-                tipe: formData.tipe,
-                jumlah: Number(formData.jumlah),
-                deskripsi: formData.deskripsi,
-            });
-
+            await keuanganService.tambahKeuangan(formData);
             notify({
                 type: "success",
                 title: "Berhasil",
                 message: "Transaksi berhasil diproses.",
             });
             setModalFormOpen(false);
-            fetchKeuangan(); // Muat ulang data langsung dari database
+            fetchKeuangan();
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Terjadi kesalahan saat memproses transaksi.",
+                message: "Gagal memproses transaksi.",
             });
         } finally {
             setLoading(false);

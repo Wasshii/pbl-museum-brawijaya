@@ -1,16 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
-import { api } from "@/lib/api";
-
-export interface FeedbackData {
-    id: number;
-    nama_user: string;
-    rating: number;
-    komentar: string;
-    tanggal: string;
-    balasan: string | null;
-}
+import * as feedbackService from "@/services/feedback.service";
+import type { FeedbackData } from "@/types/feedback";
 
 export function useFeedback() {
     const { notify } = useToast();
@@ -27,8 +19,8 @@ export function useFeedback() {
     const fetchFeedbacks = async () => {
         setLoading(true);
         try {
-            const response = await api.get("/api/feedback");
-            setFeedbacks(response.data.data);
+            const data = await feedbackService.getFeedbacks();
+            setFeedbacks(data);
         } catch (error) {
             notify({
                 type: "error",
@@ -59,12 +51,10 @@ export function useFeedback() {
     const submitReply = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedFeedback) return;
-        setLoading(true);
 
+        setLoading(true);
         try {
-            await api.put(`/api/feedback/${selectedFeedback.id}/reply`, {
-                replyText,
-            });
+            await feedbackService.balasFeedback(selectedFeedback.id, replyText);
 
             notify({
                 type: "success",
@@ -72,12 +62,12 @@ export function useFeedback() {
                 message: "Balasan berhasil dikirim.",
             });
             setModalReplyOpen(false);
-            fetchFeedbacks(); // Refresh data langsung dari MySQL
+            fetchFeedbacks();
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Terjadi kesalahan saat mengirim balasan.",
+                message: "Terjadi kesalahan saat membalas.",
             });
         } finally {
             setLoading(false);
