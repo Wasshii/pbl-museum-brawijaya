@@ -1,4 +1,30 @@
 const db = require("../config/db");
+const bcrypt = require("bcrypt"); // Tambahkan bcrypt untuk hashing
+
+// Fungsi Inisialisasi Admin (Wajib Ada)
+exports.initAdmin = async () => {
+    try {
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@tiket.com";
+        const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+
+        const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
+            adminEmail,
+        ]);
+
+        if (rows.length === 0) {
+            const hashed = await bcrypt.hash(adminPassword, 10);
+            await db.query(
+                "INSERT INTO users (email, password, role) VALUES (?, ?, ?)",
+                [adminEmail, hashed, "admin"],
+            );
+            console.log(
+                `[SYSTEM] Akun admin default (${adminEmail}) berhasil dibuat!`,
+            );
+        }
+    } catch (error) {
+        console.error("[SYSTEM] Gagal menginisialisasi admin:", error.message);
+    }
+};
 
 exports.findByEmail = async (email) => {
     const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
