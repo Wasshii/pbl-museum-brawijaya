@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
+import { api } from "@/lib/api";
 
 export interface TransaksiData {
     id: number;
@@ -28,34 +29,15 @@ export function useKeuangan() {
     const fetchKeuangan = async () => {
         setLoading(true);
         try {
-            // TODO: Ganti dengan fetch API dari backend
-            setTimeout(() => {
-                setTransaksi([
-                    {
-                        id: 1,
-                        tanggal: "2026-10-25",
-                        deskripsi: "Top up saldo admin",
-                        tipe: "pemasukan",
-                        jumlah: 500000,
-                        status: "berhasil",
-                    },
-                    {
-                        id: 2,
-                        tanggal: "2026-10-26",
-                        deskripsi: "Pencairan dana ke bank",
-                        tipe: "pengeluaran",
-                        jumlah: 150000,
-                        status: "berhasil",
-                    },
-                ]);
-                setLoading(false);
-            }, 500);
+            const response = await api.get("/api/keuangan");
+            setTransaksi(response.data.data);
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Gagal memuat data keuangan",
+                message: "Gagal memuat data keuangan dari server",
             });
+        } finally {
             setLoading(false);
         }
     };
@@ -68,7 +50,7 @@ export function useKeuangan() {
         item.deskripsi.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-    // Perhitungan Ringkasan
+    // Perhitungan Ringkasan (Berdasarkan data MySQL)
     const totalPemasukan = transaksi
         .filter((t) => t.tipe === "pemasukan")
         .reduce((acc, curr) => acc + curr.jumlah, 0);
@@ -84,22 +66,40 @@ export function useKeuangan() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Logika Validasi Tambahan: Cegah minus
+        if (
+            formData.tipe === "pengeluaran" &&
+            Number(formData.jumlah) > totalSaldo
+        ) {
+            notify({
+                type: "error",
+                title: "Saldo Kurang",
+                message: "Pencairan ditolak! Saldo tidak mencukupi.",
+            });
+            return;
+        }
+
         setLoading(true);
         try {
-            // TODO: Ganti dengan POST API ke backend
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await api.post("/api/keuangan", {
+                tipe: formData.tipe,
+                jumlah: Number(formData.jumlah),
+                deskripsi: formData.deskripsi,
+            });
+
             notify({
                 type: "success",
                 title: "Berhasil",
                 message: "Transaksi berhasil diproses.",
             });
             setModalFormOpen(false);
-            fetchKeuangan();
+            fetchKeuangan(); // Muat ulang data langsung dari database
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Terjadi kesalahan saat memproses.",
+                message: "Terjadi kesalahan saat memproses transaksi.",
             });
         } finally {
             setLoading(false);

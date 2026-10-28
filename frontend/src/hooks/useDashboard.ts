@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { api } from "@/lib/api"; // Import API axios yang sudah ada tokennya
 
 export function useDashboard() {
     const [loading, setLoading] = useState(true);
@@ -11,16 +12,20 @@ export function useDashboard() {
     });
 
     useEffect(() => {
-        // Simulasi fetch data statistik untuk Dashboard
-        setTimeout(() => {
-            setStats({
-                totalUser: 125,
-                totalKoleksi: 48,
-                saldoKeuangan: 15500000,
-                totalUlasan: 320,
-            });
-            setLoading(false);
-        }, 500);
+        const fetchStats = async () => {
+            try {
+                const response = await api.get("/api/dashboard");
+                if (response.data.success) {
+                    setStats(response.data.data);
+                }
+            } catch (error) {
+                console.error("Gagal mengambil data dashboard:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStats();
     }, []);
 
     const formatRupiah = (angka: number) => {
