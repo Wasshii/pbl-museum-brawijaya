@@ -1,18 +1,12 @@
 "use client";
 import { Eye, Edit, Trash2 } from "lucide-react";
 import Image from "next/image";
-
-interface KoleksiData {
-    id_koleksi: number;
-    nama_koleksi: string;
-    deskripsi: string;
-    gambar: string; // URL gambar
-}
+import type { Koleksi } from "@/types/koleksi";
 
 interface Props {
-    koleksi: KoleksiData[];
-    onView: (item: KoleksiData) => void;
-    onEdit: (item: KoleksiData) => void;
+    koleksi: Koleksi[];
+    onView: (item: Koleksi) => void;
+    onEdit: (item: Koleksi) => void;
     onDelete: (id: number) => void;
 }
 
@@ -47,7 +41,7 @@ export default function SejarahTable({
                 <tbody>
                     {koleksi.map((item, index) => (
                         <tr
-                            key={item.id_koleksi}
+                            key={item.id}
                             className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-4 px-6">{index + 1}</td>
                             <td className="py-4 px-6">
@@ -55,16 +49,17 @@ export default function SejarahTable({
                                     <Image
                                         src={
                                             item.gambar ||
-                                            "/images/placeholder.jpg"
+                                            "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80"
                                         }
-                                        alt={item.nama_koleksi}
+                                        alt={item.nama || "koleksi"}
                                         fill
                                         className="object-cover"
+                                        unoptimized
                                     />
                                 </div>
                             </td>
                             <td className="py-4 px-6 font-medium text-gray-900">
-                                {item.nama_koleksi}
+                                {item.nama}
                             </td>
                             <td className="py-4 px-6 text-gray-600 truncate max-w-xs">
                                 {item.deskripsi}
@@ -82,9 +77,7 @@ export default function SejarahTable({
                                         <Edit className="w-4 h-4" />
                                     </button>
                                     <button
-                                        onClick={() =>
-                                            onDelete(item.id_koleksi)
-                                        }
+                                        onClick={() => onDelete(item.id)}
                                         className="bg-[#d9534f] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
                                         <Trash2 className="w-4 h-4" />
                                     </button>

@@ -1,52 +1,38 @@
-import { DEFAULT_KOLEKSI_IMAGE } from "@/lib/constants";
-import { todayISO } from "@/lib/format";
-import { readStorage, writeStorage } from "@/lib/storage";
+import { api } from "@/lib/api";
 import type { Koleksi, KoleksiFormValues } from "@/types/koleksi";
 
-const KEY = "museum_koleksi";
+// Ambil semua data koleksi dari backend
+export const getKoleksi = async (): Promise<Koleksi[]> => {
+    const response = await api.get("/api/koleksi");
+    return response.data.data;
+};
 
-// Data dummy dibiarkan kosong, nanti akan terisi otomatis saat kita tambah data di web
-const DUMMY_KOLEKSI: Koleksi[] = [];
-
-export const getKoleksi = async (): Promise<Koleksi[]> =>
-    readStorage<Koleksi[]>(KEY, DUMMY_KOLEKSI);
-
+// Tambah koleksi baru
 export const createKoleksi = async (
     values: KoleksiFormValues,
-): Promise<Koleksi> => {
-    const koleksiList = await getKoleksi();
-
-    const baru: Koleksi = {
+): Promise<void> => {
+    const dataToSend = {
         ...values,
-        id: Date.now(),
-        tanggal: todayISO(), // Diisi otomatis sesuai instruksi PDF
-        gambar: values.gambar || DEFAULT_KOLEKSI_IMAGE, // Gambar default jika kosong
+        gambar:
+            values.gambar ||
+            "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80",
     };
-
-    writeStorage(KEY, [baru, ...koleksiList]);
-    return baru;
+    await api.post("/api/koleksi", dataToSend);
 };
 
-export const updateKoleksi = async (koleksi: Koleksi): Promise<Koleksi> => {
-    const koleksiList = await getKoleksi();
-
-    const diperbarui: Koleksi = {
-        ...koleksi,
-        tanggal: todayISO(), // Diperbarui otomatis sesuai instruksi PDF
-        gambar: koleksi.gambar || DEFAULT_KOLEKSI_IMAGE,
+// Edit koleksi
+export const updateKoleksi = async (koleksi: Koleksi): Promise<void> => {
+    const dataToSend = {
+        nama: koleksi.nama,
+        jenis: koleksi.jenis,
+        token: koleksi.token,
+        deskripsi: koleksi.deskripsi,
+        gambar: koleksi.gambar,
     };
-
-    writeStorage(
-        KEY,
-        koleksiList.map((k) => (k.id === koleksi.id ? diperbarui : k)),
-    );
-    return diperbarui;
+    await api.put(`/api/koleksi/${koleksi.id}`, dataToSend);
 };
 
+// Hapus koleksi
 export const deleteKoleksi = async (id: number): Promise<void> => {
-    const koleksiList = await getKoleksi();
-    writeStorage(
-        KEY,
-        koleksiList.filter((k) => k.id !== id),
-    );
+    await api.delete(`/api/koleksi/${id}`);
 };

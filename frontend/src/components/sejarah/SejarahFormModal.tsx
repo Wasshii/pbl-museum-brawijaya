@@ -45,11 +45,13 @@ export default function SejarahFormModal({
                     </label>
                     <input
                         type="text"
-                        value={formData.nama_koleksi || ""}
+                        // REVISI: formData.nama_koleksi diubah menjadi formData.nama
+                        value={formData.nama || ""}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                nama_koleksi: e.target.value,
+                                // REVISI: nama_koleksi diubah menjadi nama
+                                nama: e.target.value,
                             })
                         }
                         className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:border-[#6C9E78] focus:ring-1 focus:ring-[#6C9E78]"
