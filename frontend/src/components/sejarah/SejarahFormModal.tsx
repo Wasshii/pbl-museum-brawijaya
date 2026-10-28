@@ -2,13 +2,14 @@
 import Modal from "@/components/ui/Modal";
 import Image from "next/image";
 import { Upload } from "lucide-react";
+import type { KoleksiFormValues } from "@/types/koleksi"; // TAMBAHKAN IMPORT INI
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (e: React.FormEvent) => void;
-    formData: any;
-    setFormData: (data: any) => void;
+    formData: KoleksiFormValues; // REVISI: any diganti dengan KoleksiFormValues
+    setFormData: (data: KoleksiFormValues) => void; // REVISI: any diganti dengan KoleksiFormValues
     isEdit: boolean;
     loading: boolean;
 }
@@ -45,12 +46,10 @@ export default function SejarahFormModal({
                     </label>
                     <input
                         type="text"
-                        // REVISI: formData.nama_koleksi diubah menjadi formData.nama
                         value={formData.nama || ""}
                         onChange={(e) =>
                             setFormData({
                                 ...formData,
-                                // REVISI: nama_koleksi diubah menjadi nama
                                 nama: e.target.value,
                             })
                         }
@@ -89,7 +88,8 @@ export default function SejarahFormModal({
                                     <Image
                                         src={
                                             formData.previewGambar ||
-                                            formData.gambar
+                                            formData.gambar ||
+                                            ""
                                         }
                                         alt="Preview"
                                         fill

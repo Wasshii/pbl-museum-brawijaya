@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
 import * as koleksiService from "@/services/koleksi.service";
-import type { Koleksi } from "@/types/koleksi";
+import type { Koleksi, KoleksiFormValues } from "@/types/koleksi";
 
 export function useSejarah() {
     const { notify } = useToast();
@@ -18,10 +18,9 @@ export function useSejarah() {
     const [isEdit, setIsEdit] = useState(false);
     const [selectedItem, setSelectedItem] = useState<Koleksi | null>(null);
 
-    // Sesuaikan dengan struktur database MySQL
-    const [formData, setFormData] = useState<any>({
+    const [formData, setFormData] = useState<KoleksiFormValues>({
         nama: "",
-        jenis: "Benda Bersejarah", // Default jenis
+        jenis: "Benda Bersejarah",
         token: "",
         deskripsi: "",
         gambar: "",
@@ -33,12 +32,19 @@ export function useSejarah() {
         setLoading(true);
         try {
             const data = await koleksiService.getKoleksi();
-            setKoleksi(data);
+            // Format tanggal update agar rapi
+            const formattedData = data.map((item) => ({
+                ...item,
+                tanggal_update: new Date(
+                    item.tanggal_update,
+                ).toLocaleDateString("id-ID"),
+            }));
+            setKoleksi(formattedData);
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Gagal memuat data koleksi dari server",
+                message: "Gagal memuat data koleksi",
             });
         } finally {
             setLoading(false);
@@ -49,8 +55,11 @@ export function useSejarah() {
         fetchKoleksi();
     }, []);
 
-    const filteredKoleksi = koleksi.filter((item) =>
-        item.nama?.toLowerCase().includes(searchQuery.toLowerCase()),
+    // REVISI: Pencarian sekarang mencakup Nama ATAU Token
+    const filteredKoleksi = koleksi.filter(
+        (item) =>
+            item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.token.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     const handleAdd = () => {
@@ -58,7 +67,7 @@ export function useSejarah() {
         setFormData({
             nama: "",
             jenis: "Benda Bersejarah",
-            token: `TKN-${Math.floor(Math.random() * 10000)}`, // Generate token acak sederhana
+            token: `TKN-${Math.floor(1000 + Math.random() * 9000)}`,
             deskripsi: "",
             gambar: "",
             fileGambar: null,
@@ -75,7 +84,7 @@ export function useSejarah() {
             jenis: item.jenis,
             token: item.token,
             deskripsi: item.deskripsi,
-            gambar: item.gambar,
+            gambar: item.gambar || "",
             fileGambar: null,
             previewGambar: "",
         });
@@ -105,20 +114,18 @@ export function useSejarah() {
             } else {
                 await koleksiService.createKoleksi(formData);
             }
-
             notify({
                 type: "success",
                 title: "Berhasil",
-                message: `Data koleksi berhasil ${isEdit ? "diperbarui" : "ditambahkan"}!`,
+                message: `Data berhasil ${isEdit ? "diperbarui" : "ditambahkan"}`,
             });
             setModalFormOpen(false);
-            fetchKoleksi(); // Refresh data langsung dari MySQL
+            fetchKoleksi();
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message:
-                    "Terjadi kesalahan saat menyimpan data (Pastikan token unik).",
+                message: "Gagal menyimpan, pastikan token unik.",
             });
         } finally {
             setLoading(false);
@@ -133,15 +140,15 @@ export function useSejarah() {
             notify({
                 type: "success",
                 title: "Berhasil",
-                message: "Data koleksi berhasil dihapus.",
+                message: "Data berhasil dihapus.",
             });
             setModalDeleteOpen(false);
-            fetchKoleksi(); // Refresh data langsung dari MySQL
+            fetchKoleksi();
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Terjadi kesalahan saat menghapus data.",
+                message: "Gagal menghapus data.",
             });
         } finally {
             setLoading(false);

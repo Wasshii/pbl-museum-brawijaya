@@ -1,11 +1,12 @@
 "use client";
 import Modal from "@/components/ui/Modal";
 import Image from "next/image";
+import type { Koleksi } from "@/types/koleksi"; // TAMBAHKAN IMPORT INI
 
 interface Props {
     isOpen: boolean;
     onClose: () => void;
-    item: any;
+    item: Koleksi | null; // REVISI: any diganti dengan Koleksi | null
 }
 
 export default function SejarahDetailModal({ isOpen, onClose, item }: Props) {
@@ -17,7 +18,8 @@ export default function SejarahDetailModal({ isOpen, onClose, item }: Props) {
                 <div className="w-full h-48 relative rounded-xl overflow-hidden border border-gray-200 bg-gray-100 shadow-sm">
                     <Image
                         src={item.gambar || "/images/placeholder.jpg"}
-                        alt={item.nama_koleksi}
+                        // REVISI: item.nama_koleksi diubah menjadi item.nama (menyesuaikan tabel)
+                        alt={item.nama || "Gambar Koleksi"}
                         fill
                         className="object-cover"
                     />
@@ -28,7 +30,8 @@ export default function SejarahDetailModal({ isOpen, onClose, item }: Props) {
                         Nama Koleksi
                     </span>
                     <span className="font-medium text-gray-900 text-lg">
-                        {item.nama_koleksi}
+                        {/* REVISI: item.nama_koleksi diubah menjadi item.nama */}
+                        {item.nama}
                     </span>
                 </div>
 

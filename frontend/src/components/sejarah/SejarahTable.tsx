@@ -30,6 +30,16 @@ export default function SejarahTable({
                         <th className="py-4 px-6 font-semibold whitespace-nowrap w-1/4">
                             Nama Koleksi
                         </th>
+
+                        {/* TAMBAH 2 KOLOM INI */}
+                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
+                            Token
+                        </th>
+                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
+                            Tgl Update
+                        </th>
+                        {/* ----------------- */}
+
                         <th className="py-4 px-6 font-semibold whitespace-nowrap w-auto">
                             Deskripsi
                         </th>
@@ -61,6 +71,16 @@ export default function SejarahTable({
                             <td className="py-4 px-6 font-medium text-gray-900">
                                 {item.nama}
                             </td>
+
+                            {/* TAMBAHKAN TAMPILAN DATANYA DI SINI */}
+                            <td className="py-4 px-6 text-[#6C9E78] font-bold text-sm">
+                                {item.token}
+                            </td>
+                            <td className="py-4 px-6 text-gray-500 text-sm">
+                                {item.tanggal_update}
+                            </td>
+                            {/* ---------------------------------- */}
+
                             <td className="py-4 px-6 text-gray-600 truncate max-w-xs">
                                 {item.deskripsi}
                             </td>
@@ -87,8 +107,9 @@ export default function SejarahTable({
                     ))}
                     {koleksi.length === 0 && (
                         <tr>
+                            {/* REVISI: colSpan diubah dari 5 menjadi 7 karena jumlah kolom bertambah */}
                             <td
-                                colSpan={5}
+                                colSpan={7}
                                 className="py-12 text-center text-gray-500 font-medium">
                                 Tidak ada data koleksi yang ditemukan.
                             </td>
