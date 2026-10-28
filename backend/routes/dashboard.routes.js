@@ -1,11 +1,9 @@
 const express = require("express");
 const dashboardController = require("../controllers/dashboard.controller");
-// 1. Tambahkan baris ini untuk memanggil middleware
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
-
 const router = express.Router();
 
-// 2. Sisipkan authenticate & requireAdmin sebelum controller
+// Tidak perlu validasi karena hanya mengambil data (GET)
 router.get(
     "/",
     authenticate,

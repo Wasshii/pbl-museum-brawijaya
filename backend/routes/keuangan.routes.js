@@ -1,17 +1,27 @@
 const express = require("express");
 const keuanganController = require("../controllers/keuangan.controller");
-// 1. Tambahkan import middleware di sini
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+
+// --- TAMBAHKAN 2 BARIS INI ---
+const validate = require("../middleware/validate.middleware");
+const { keuanganSchema } = require("../schemas/keuangan.schema");
 
 const router = express.Router();
 
-// 2. Sisipkan authenticate & requireAdmin di setiap router
 router.get(
     "/",
     authenticate,
     requireAdmin,
     keuanganController.getSemuaKeuangan,
 );
-router.post("/", authenticate, requireAdmin, keuanganController.tambahKeuangan);
+
+// --- PASANG VALIDATE DI ROUTE POST ---
+router.post(
+    "/",
+    authenticate,
+    requireAdmin,
+    validate(keuanganSchema),
+    keuanganController.tambahKeuangan,
+);
 
 module.exports = router;
