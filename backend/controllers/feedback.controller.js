@@ -10,7 +10,8 @@ exports.getSemuaFeedback = async (req, res) => {
             nama_user: item.nama,
             rating: item.rating,
             komentar: item.ulasan,
-            tanggal: item.tanggal.toISOString().split("T")[0],
+            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            tanggal: new Date(item.tanggal).toLocaleDateString("sv-SE"),
             balasan: item.balasan_admin || null,
         }));
 

@@ -16,7 +16,10 @@ exports.getSemuaPengunjung = async (req, res) => {
             email: item.email,
             address: item.alamat,
             status: item.status,
-            createdAt: item.tanggal_dibuat.toISOString().split("T")[0],
+            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
+                "sv-SE",
+            ),
             avatar: item.avatar || DUMMY_AVATAR,
         }));
 

@@ -7,7 +7,8 @@ exports.getSemuaKeuangan = async (req, res) => {
         // Memformat data agar sesuai dengan struktur tabel di Frontend
         const formattedData = data.map((item) => ({
             id: item.id,
-            tanggal: item.tanggal.toISOString().split("T")[0], // Mengambil format YYYY-MM-DD
+            // REVISI: Menggunakan toLocaleDateString('sv-SE') untuk format YYYY-MM-DD berdasarkan waktu lokal
+            tanggal: item.tanggal.toLocaleDateString("sv-SE"),
             deskripsi: item.keterangan,
             tipe: item.jenis.toLowerCase(), // Mengubah 'Pemasukan' jadi 'pemasukan'
             jumlah: item.nominal,
