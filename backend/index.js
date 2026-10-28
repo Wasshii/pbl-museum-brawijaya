@@ -5,7 +5,8 @@ const authRoutes = require("./routes/auth.routes");
 const koleksiRoutes = require("./routes/koleksi.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const keuanganRoutes = require("./routes/keuangan.routes");
-const pengunjungRoutes = require("./routes/pengunjung.routes"); // [BARU] Import rute
+const pengunjungRoutes = require("./routes/pengunjung.routes");
+const feedbackRoutes = require("./routes/feedback.routes"); // [BARU] Import rute feedback
 
 const User = require("./models/user.model");
 
@@ -21,7 +22,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/koleksi", koleksiRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/keuangan", keuanganRoutes);
-app.use("/api/pengunjung", pengunjungRoutes); // [BARU] Daftarkan rute
+app.use("/api/pengunjung", pengunjungRoutes);
+app.use("/api/feedback", feedbackRoutes); // [BARU] Daftarkan rute feedback
 
 app.listen(PORT, () => {
     console.log(`Server Backend berjalan di http://localhost:${PORT}`);

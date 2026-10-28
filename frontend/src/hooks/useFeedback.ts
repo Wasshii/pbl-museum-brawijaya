@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
+import { api } from "@/lib/api";
 
 export interface FeedbackData {
     id: number;
@@ -26,36 +27,15 @@ export function useFeedback() {
     const fetchFeedbacks = async () => {
         setLoading(true);
         try {
-            // TODO: Ganti dengan fetch API dari backend
-            setTimeout(() => {
-                setFeedbacks([
-                    {
-                        id: 1,
-                        nama_user: "Budi Santoso",
-                        rating: 5,
-                        komentar: "Aplikasi sangat bagus dan informatif!",
-                        tanggal: "2026-10-26",
-                        balasan: null,
-                    },
-                    {
-                        id: 2,
-                        nama_user: "Siti Aminah",
-                        rating: 4,
-                        komentar:
-                            "Koleksinya lengkap, tapi loading kadang lambat.",
-                        tanggal: "2026-10-25",
-                        balasan:
-                            "Terima kasih masukannya, kami akan tingkatkan performa server.",
-                    },
-                ]);
-                setLoading(false);
-            }, 500);
+            const response = await api.get("/api/feedback");
+            setFeedbacks(response.data.data);
         } catch (error) {
             notify({
                 type: "error",
                 title: "Gagal",
                 message: "Gagal memuat data feedback",
             });
+        } finally {
             setLoading(false);
         }
     };
@@ -82,15 +62,17 @@ export function useFeedback() {
         setLoading(true);
 
         try {
-            // TODO: Ganti dengan POST/PUT API balasan ke backend
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await api.put(`/api/feedback/${selectedFeedback.id}/reply`, {
+                replyText,
+            });
+
             notify({
                 type: "success",
                 title: "Berhasil",
                 message: "Balasan berhasil dikirim.",
             });
             setModalReplyOpen(false);
-            fetchFeedbacks();
+            fetchFeedbacks(); // Refresh data langsung dari MySQL
         } catch (error) {
             notify({
                 type: "error",
