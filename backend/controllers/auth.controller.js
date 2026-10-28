@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const crypto = require("crypto"); // TAMBAHAN: Import modul crypto bawaan Node.js
 const User = require("../models/user.model");
 const { createToken } = require("../lib/jwt");
 
@@ -7,16 +8,25 @@ exports.login = async (req, res) => {
         const { email, password } = req.body;
         const user = await User.findByEmail(email);
 
+        // REVISI: Pesan error disamakan agar tidak membocorkan apakah email terdaftar atau tidak
         if (!user)
             return res
                 .status(401)
-                .json({ success: false, message: "Email tidak terdaftar" });
+                .json({
+                    success: false,
+                    message: "Email atau kata sandi salah",
+                });
 
         const isValid = await bcrypt.compare(password, user.password);
+
+        // REVISI: Pesan error disamakan
         if (!isValid)
             return res
                 .status(401)
-                .json({ success: false, message: "Kata sandi salah" });
+                .json({
+                    success: false,
+                    message: "Email atau kata sandi salah",
+                });
 
         const token = createToken(user);
         res.json({
@@ -42,7 +52,9 @@ exports.forgotPassword = async (req, res) => {
                 .status(404)
                 .json({ success: false, message: "Email tidak terdaftar" });
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit kode
+        // REVISI: Menggunakan crypto.randomInt untuk angka acak yang lebih aman
+        const code = crypto.randomInt(100000, 999999).toString();
+
         await User.saveResetCode(email, code);
 
         // Simulasi pengiriman email (di proyek nyata gunakan Nodemailer)
@@ -68,12 +80,10 @@ exports.verifyResetCode = async (req, res) => {
         const user = await User.findByEmailAndResetCode(email, code);
 
         if (!user)
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    message: "Kode tidak valid atau kedaluwarsa",
-                });
+            return res.status(400).json({
+                success: false,
+                message: "Kode tidak valid atau kedaluwarsa",
+            });
         res.json({ success: true, message: "Kode valid" });
     } catch (error) {
         res.status(500).json({
@@ -89,12 +99,10 @@ exports.resetPassword = async (req, res) => {
         const user = await User.findByEmailAndResetCode(email, code);
 
         if (!user)
-            return res
-                .status(400)
-                .json({
-                    success: false,
-                    message: "Kode tidak valid atau kedaluwarsa",
-                });
+            return res.status(400).json({
+                success: false,
+                message: "Kode tidak valid atau kedaluwarsa",
+            });
 
         const hashed = await bcrypt.hash(newPassword, 10);
         await User.updatePassword(email, hashed);
