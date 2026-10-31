@@ -29,7 +29,7 @@ export default function DashboardUtamaPage() {
                     {/* Banner Selamat Datang */}
                     <div className="bg-white rounded-2xl p-8 md:p-12 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center mt-4">
                         <div className="w-20 h-20 bg-[#e6f3eb] rounded-full flex items-center justify-center mb-6">
-                            <span className="text-4xl">🏛️</span>
+                            <span className="text-4xl"></span>
                         </div>
                         <h3 className="text-2xl font-bold text-gray-900 mb-3">
                             Selamat Datang di Panel Admin!

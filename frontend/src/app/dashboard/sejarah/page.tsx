@@ -1,11 +1,12 @@
 "use client";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
-import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import SejarahTable from "@/components/sejarah/SejarahTable";
 import SejarahFormModal from "@/components/sejarah/SejarahFormModal";
 import SejarahDetailModal from "@/components/sejarah/SejarahDetailModal";
-import { useSejarah } from "@/hooks/useSejarah"; // Pastikan hook ini sudah dibuat di Tahap 5
+import SejarahDeleteModal from "@/components/sejarah/SejarahDeleteModal";
+import { useSejarah } from "@/hooks/useSejarah";
 
 export default function SejarahPage() {
     const {
@@ -31,36 +32,41 @@ export default function SejarahPage() {
         confirmDelete,
     } = useSejarah();
 
-    return (
-        <div className="animate-in fade-in duration-300">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <h1 className="text-[24px] md:text-[28px] font-bold text-gray-900 tracking-tight m-0">
-                    Data Sejarah (Koleksi)
-                </h1>
+    // State tampilan saja: menampilkan ikon hapus/edit di tabel
+    const [isEditMode, setIsEditMode] = useState(false);
 
-                <div className="flex flex-col md:flex-row items-center gap-4">
+    return (
+        <div className="w-full animate-in fade-in duration-500 pb-10">
+            <h2 className="text-[26px] font-bold text-black mb-8">
+                Koleksi Sejarah
+            </h2>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div className="w-full md:w-[380px]">
                     <SearchInput
                         value={searchQuery}
                         onChange={(val) => setSearchQuery(val)}
-                        placeholder="Cari nama koleksi..."
+                        placeholder="Cari Berdasarkan Token / Nama Benda"
                     />
-
-                    <button
-                        onClick={handleAdd}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#6C9E78] text-white px-5 py-2.5 rounded-xl hover:bg-[#5a8664] transition-colors shadow-sm font-medium border-0 cursor-pointer">
-                        <Plus className="w-5 h-5" />
-                        <span>Tambah Koleksi</span>
-                    </button>
                 </div>
+
+                <button
+                    type="button"
+                    onClick={handleAdd}
+                    className="flex items-center gap-2 bg-[#222222] hover:bg-black text-white px-6 py-3 rounded-full font-bold text-[14px] transition-colors cursor-pointer shadow-sm border-0">
+                    <Plus className="w-5 h-5" /> Tambahkan Koleksi
+                </button>
             </div>
 
             {loading && koleksi.length === 0 ? (
                 <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6C9E78] border-t-transparent" />
+                    <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#222222] border-t-transparent" />
                 </div>
             ) : (
                 <SejarahTable
                     koleksi={koleksi}
+                    isEditMode={isEditMode}
+                    onToggleEdit={() => setIsEditMode((prev) => !prev)}
                     onView={handleView}
                     onEdit={handleEdit}
                     onDelete={handleDeleteClick}
@@ -83,7 +89,7 @@ export default function SejarahPage() {
                 item={selectedItem}
             />
 
-            <ConfirmDeleteModal
+            <SejarahDeleteModal
                 isOpen={modalDeleteOpen}
                 onClose={() => setModalDeleteOpen(false)}
                 onConfirm={confirmDelete}

@@ -1,122 +1,122 @@
 "use client";
-import { Eye, Edit, Trash2 } from "lucide-react";
-import Image from "next/image";
+import { ArrowRight, Edit3, Trash2 } from "lucide-react";
 import type { Koleksi } from "@/types/koleksi";
 
 interface Props {
     koleksi: Koleksi[];
+    isEditMode: boolean;
+    onToggleEdit: () => void;
     onView: (item: Koleksi) => void;
     onEdit: (item: Koleksi) => void;
     onDelete: (id: number) => void;
 }
 
+const TH =
+    "sticky top-0 z-20 bg-white py-4 px-4 font-bold text-black text-[15px] border-b border-gray-200 bg-clip-padding";
+const TD = "py-4 px-4 font-semibold text-[14px] border-b border-gray-100";
+
 export default function SejarahTable({
     koleksi,
+    isEditMode,
+    onToggleEdit,
     onView,
     onEdit,
     onDelete,
 }: Props) {
     return (
-        <div className="bg-white rounded-[20px] shadow-sm overflow-hidden mt-6 overflow-x-auto">
-            <table className="w-full min-w-[800px] border-collapse">
-                <thead>
-                    <tr className="bg-[#6C9E78] text-white text-left">
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap w-16">
-                            No
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap w-24">
-                            Gambar
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap w-1/4">
-                            Nama Koleksi
-                        </th>
-
-                        {/* TAMBAH 2 KOLOM INI */}
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            Token
-                        </th>
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap">
-                            Tgl Update
-                        </th>
-                        {/* ----------------- */}
-
-                        <th className="py-4 px-6 font-semibold whitespace-nowrap w-auto">
-                            Deskripsi
-                        </th>
-                        <th className="py-4 px-6 font-semibold text-center whitespace-nowrap w-32">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {koleksi.map((item, index) => (
-                        <tr
-                            key={item.id}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                            <td className="py-4 px-6">{index + 1}</td>
-                            <td className="py-4 px-6">
-                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 relative border border-gray-200">
-                                    <Image
-                                        src={
-                                            item.gambar ||
-                                            "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80"
-                                        }
-                                        alt={item.nama || "koleksi"}
-                                        fill
-                                        className="object-cover"
-                                        unoptimized
-                                    />
-                                </div>
-                            </td>
-                            <td className="py-4 px-6 font-medium text-gray-900">
-                                {item.nama}
-                            </td>
-
-                            {/* TAMBAHKAN TAMPILAN DATANYA DI SINI */}
-                            <td className="py-4 px-6 text-[#6C9E78] font-bold text-sm">
-                                {item.token}
-                            </td>
-                            <td className="py-4 px-6 text-gray-500 text-sm">
-                                {item.tanggal_update}
-                            </td>
-                            {/* ---------------------------------- */}
-
-                            <td className="py-4 px-6 text-gray-600 truncate max-w-xs">
-                                {item.deskripsi}
-                            </td>
-                            <td className="py-4 px-6">
-                                <div className="flex items-center justify-center gap-3">
-                                    <button
-                                        onClick={() => onView(item)}
-                                        className="bg-[#4a8a5b] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Eye className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => onEdit(item)}
-                                        className="bg-[#f0ad4e] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Edit className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => onDelete(item.id)}
-                                        className="bg-[#d9534f] text-white p-2 rounded-lg hover:bg-opacity-80 transition shadow-sm">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </td>
+        <div
+            className={`bg-white rounded-[24px] shadow-sm overflow-hidden w-full transition-all duration-300 border border-gray-100 ${
+                isEditMode ? "ring-4 ring-blue-500/80" : ""
+            }`}>
+            {/* Tinggi dibatasi agar tabel bisa di-scroll; header tetap menempel di atas */}
+            <div className="max-h-[460px] overflow-y-auto overflow-x-auto glass-scroll">
+                <table className="w-full text-left min-w-[800px] border-separate border-spacing-0">
+                    <thead className="sticky top-0 z-20 bg-white">
+                        <tr className="bg-white">
+                            <th className={`${TH} pl-6 w-[25%]`}>Nama Benda</th>
+                            <th className={`${TH} w-[20%]`}>Jenis Benda</th>
+                            <th className={`${TH} text-center`}>
+                                Tanggal Di Update
+                            </th>
+                            <th className={`${TH} text-center`}>Token</th>
+                            <th className={`${TH} text-center`}>Detail</th>
+                            <th className={`${TH} pr-6 text-center`}>
+                                <button
+                                    type="button"
+                                    onClick={onToggleEdit}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-[13px] transition-colors cursor-pointer font-semibold shadow-sm border-0">
+                                    {isEditMode ? "Selesai" : "Edit"}
+                                </button>
+                            </th>
                         </tr>
-                    ))}
-                    {koleksi.length === 0 && (
-                        <tr>
-                            {/* REVISI: colSpan diubah dari 5 menjadi 7 karena jumlah kolom bertambah */}
-                            <td
-                                colSpan={7}
-                                className="py-12 text-center text-gray-500 font-medium">
-                                Tidak ada data koleksi yang ditemukan.
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {koleksi.map((item) => (
+                            <tr
+                                key={item.id}
+                                className="hover:bg-gray-50/80 transition-colors">
+                                <td className={`${TD} pl-6 text-black`}>
+                                    {item.nama}
+                                </td>
+                                <td className={`${TD} text-gray-700`}>
+                                    {item.jenis}
+                                </td>
+                                <td
+                                    className={`${TD} text-center text-gray-700`}>
+                                    {item.tanggal_update}
+                                </td>
+                                <td
+                                    className={`${TD} text-center text-gray-700 font-mono`}>
+                                    {item.token}
+                                </td>
+                                <td className={`${TD} text-center`}>
+                                    <div className="flex justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => onView(item)}
+                                            title="Lihat Detail Benda"
+                                            className="bg-transparent border-0 cursor-pointer p-1 rounded hover:bg-gray-100 transition-colors">
+                                            <ArrowRight className="w-5 h-5 text-black hover:scale-110 transition-transform" />
+                                        </button>
+                                    </div>
+                                </td>
+                                <td className={`${TD} pr-6 text-center`}>
+                                    {isEditMode && (
+                                        <div className="flex justify-center items-center gap-3 animate-in fade-in zoom-in duration-200">
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    onDelete(item.id)
+                                                }
+                                                title="Hapus Koleksi"
+                                                className="text-red-500 hover:text-red-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onEdit(item)}
+                                                title="Edit Koleksi"
+                                                className="text-blue-500 hover:text-blue-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                                <Edit3 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+
+                        {koleksi.length === 0 && (
+                            <tr>
+                                <td
+                                    colSpan={6}
+                                    className="py-12 text-center text-gray-500 font-semibold text-[15px]">
+                                    Data tidak ditemukan.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }

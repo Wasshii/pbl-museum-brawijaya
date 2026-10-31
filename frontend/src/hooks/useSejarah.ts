@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useToast } from "@/context/ToastContext";
+import { getErrorMessage } from "@/lib/api";
 import * as koleksiService from "@/services/koleksi.service";
 import type { Koleksi, KoleksiFormValues } from "@/types/koleksi";
 
@@ -20,7 +21,7 @@ export function useSejarah() {
 
     const [formData, setFormData] = useState<KoleksiFormValues>({
         nama: "",
-        jenis: "Benda Bersejarah",
+        jenis: "",
         token: "",
         deskripsi: "",
         gambar: "",
@@ -66,8 +67,8 @@ export function useSejarah() {
         setIsEdit(false);
         setFormData({
             nama: "",
-            jenis: "Benda Bersejarah",
-            token: `TKN-${Math.floor(1000 + Math.random() * 9000)}`,
+            jenis: "", // BARU: diisi admin lewat input Jenis Benda
+            token: `TKN-${Math.floor(1000 + Math.random() * 9000)}`, // usulan token, boleh diubah
             deskripsi: "",
             gambar: "",
             fileGambar: null,
@@ -122,10 +123,11 @@ export function useSejarah() {
             setModalFormOpen(false);
             fetchKoleksi();
         } catch (error) {
+            // REVISI: tampilkan pesan asli dari backend (token kembar, ukuran gambar, dll)
             notify({
                 type: "error",
                 title: "Gagal",
-                message: "Gagal menyimpan, pastikan token unik.",
+                message: getErrorMessage(error, "Gagal menyimpan data."),
             });
         } finally {
             setLoading(false);

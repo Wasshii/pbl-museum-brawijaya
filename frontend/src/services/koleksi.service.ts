@@ -6,33 +6,30 @@ export const getKoleksi = async (): Promise<Koleksi[]> => {
     return response.data.data;
 };
 
+// Data dikirim sebagai multipart/form-data karena membawa file gambar asli.
+// Jangan set header Content-Type manual: axios/browser mengisinya beserta boundary.
+const toFormData = (values: KoleksiFormValues): FormData => {
+    const body = new FormData();
+    body.append("nama", values.nama);
+    body.append("jenis", values.jenis);
+    body.append("token", values.token);
+    body.append("deskripsi", values.deskripsi);
+    // Tanpa file baru, backend mempertahankan gambar lama (saat edit)
+    // atau memakai gambar bawaan (saat tambah).
+    if (values.fileGambar) body.append("gambar", values.fileGambar);
+    return body;
+};
+
 export const createKoleksi = async (
     values: KoleksiFormValues,
 ): Promise<void> => {
-    const dataToSend = {
-        nama: values.nama,
-        jenis: values.jenis,
-        token: values.token,
-        deskripsi: values.deskripsi,
-        gambar:
-            values.previewGambar ||
-            values.gambar ||
-            "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80",
-    };
-    await api.post("/api/koleksi", dataToSend);
+    await api.post("/api/koleksi", toFormData(values));
 };
 
 export const updateKoleksi = async (
     koleksi: KoleksiFormValues & { id: number },
 ): Promise<void> => {
-    const dataToSend = {
-        nama: koleksi.nama,
-        jenis: koleksi.jenis,
-        token: koleksi.token,
-        deskripsi: koleksi.deskripsi,
-        gambar: koleksi.previewGambar || koleksi.gambar,
-    };
-    await api.put(`/api/koleksi/${koleksi.id}`, dataToSend);
+    await api.put(`/api/koleksi/${koleksi.id}`, toFormData(koleksi));
 };
 
 export const deleteKoleksi = async (id: number): Promise<void> => {
