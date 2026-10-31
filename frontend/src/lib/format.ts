@@ -33,3 +33,31 @@ export const todayISO = () => {
     const pad = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
+
+// ==========================================
+// TAMBAHAN BARU (dipakai halaman Feedback)
+// ==========================================
+const BULAN_SINGKAT = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
+];
+
+// "2026-10-04" -> "04 Okt 2026"
+// Dipecah manual (bukan new Date) supaya tanggal tidak bergeser karena zona waktu.
+export const formatTanggalSingkat = (iso: string) => {
+    if (!iso) return "";
+    const [tahun, bulan, hari] = iso.split("-");
+    const idx = parseInt(bulan, 10) - 1;
+    if (!tahun || !hari || !(idx >= 0 && idx <= 11)) return iso;
+    return `${hari.slice(0, 2)} ${BULAN_SINGKAT[idx]} ${tahun}`;
+};
