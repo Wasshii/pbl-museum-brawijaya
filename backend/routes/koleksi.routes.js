@@ -2,20 +2,24 @@ const express = require("express");
 const koleksiController = require("../controllers/koleksi.controller");
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
 
-// --- TAMBAHKAN 2 BARIS INI ---
 const validate = require("../middleware/validate.middleware");
 const { koleksiSchema } = require("../schemas/koleksi.schema");
+
+// --- BARU: middleware upload gambar (multer) ---
+const { uploadGambar } = require("../middleware/upload.middleware");
 
 const router = express.Router();
 
 // GET tidak perlu validasi karena hanya mengambil data
 router.get("/", authenticate, requireAdmin, koleksiController.getSemuaKoleksi);
 
-// --- PASANG VALIDATE DI ROUTE POST DAN PUT ---
+// POST dan PUT sekarang menerima multipart/form-data (ada file gambar).
+// Urutan penting: cek login dulu -> baca file (multer) -> validasi field teks.
 router.post(
     "/",
     authenticate,
     requireAdmin,
+    uploadGambar,
     validate(koleksiSchema),
     koleksiController.tambahKoleksi,
 );
@@ -23,6 +27,7 @@ router.put(
     "/:id",
     authenticate,
     requireAdmin,
+    uploadGambar,
     validate(koleksiSchema),
     koleksiController.ubahKoleksi,
 );

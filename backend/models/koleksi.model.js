@@ -7,6 +7,13 @@ const Koleksi = {
         );
         return rows;
     },
+    // BARU: dipakai untuk mengetahui gambar lama saat ubah/hapus
+    getById: async (id) => {
+        const [rows] = await db.query("SELECT * FROM koleksi WHERE id = ?", [
+            id,
+        ]);
+        return rows[0] || null;
+    },
     create: async (data) => {
         const [result] = await db.query(
             "INSERT INTO koleksi (nama, jenis, token, deskripsi, gambar) VALUES (?, ?, ?, ?, ?)",

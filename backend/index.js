@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path"); // <-- Tambahan sesuai instruksi
 const express = require("express");
 const cors = require("cors");
 const authRoutes = require("./routes/auth.routes");
@@ -16,6 +17,9 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors({ origin: process.env.CORS_ORIGIN }));
 app.use(express.json());
+
+// --- Tambahan sesuai instruksi ---
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // --- BARIS INI SUDAH DIHAPUS ---
 // User.initAdmin();
