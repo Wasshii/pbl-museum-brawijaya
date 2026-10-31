@@ -1,5 +1,4 @@
 "use client";
-import { useState } from "react";
 import { Plus } from "lucide-react";
 import SearchInput from "@/components/ui/SearchInput";
 import SejarahTable from "@/components/sejarah/SejarahTable";
@@ -32,9 +31,6 @@ export default function SejarahPage() {
         confirmDelete,
     } = useSejarah();
 
-    // State tampilan saja: menampilkan ikon hapus/edit di tabel
-    const [isEditMode, setIsEditMode] = useState(false);
-
     return (
         <div className="w-full animate-in fade-in duration-500 pb-10">
             <h2 className="text-[26px] font-bold text-black mb-8">
@@ -65,8 +61,6 @@ export default function SejarahPage() {
             ) : (
                 <SejarahTable
                     koleksi={koleksi}
-                    isEditMode={isEditMode}
-                    onToggleEdit={() => setIsEditMode((prev) => !prev)}
                     onView={handleView}
                     onEdit={handleEdit}
                     onDelete={handleDeleteClick}

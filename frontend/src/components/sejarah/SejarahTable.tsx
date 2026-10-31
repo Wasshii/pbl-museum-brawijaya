@@ -4,8 +4,6 @@ import type { Koleksi } from "@/types/koleksi";
 
 interface Props {
     koleksi: Koleksi[];
-    isEditMode: boolean;
-    onToggleEdit: () => void;
     onView: (item: Koleksi) => void;
     onEdit: (item: Koleksi) => void;
     onDelete: (id: number) => void;
@@ -17,17 +15,12 @@ const TD = "py-4 px-4 font-semibold text-[14px] border-b border-gray-100";
 
 export default function SejarahTable({
     koleksi,
-    isEditMode,
-    onToggleEdit,
     onView,
     onEdit,
     onDelete,
 }: Props) {
     return (
-        <div
-            className={`bg-white rounded-[24px] shadow-sm overflow-hidden w-full transition-all duration-300 border border-gray-100 ${
-                isEditMode ? "ring-4 ring-blue-500/80" : ""
-            }`}>
+        <div className="bg-white rounded-[24px] shadow-sm overflow-hidden w-full border border-gray-100">
             {/* Tinggi dibatasi agar tabel bisa di-scroll; header tetap menempel di atas */}
             <div className="max-h-[460px] overflow-y-auto overflow-x-auto glass-scroll">
                 <table className="w-full text-left min-w-[800px] border-separate border-spacing-0">
@@ -40,14 +33,7 @@ export default function SejarahTable({
                             </th>
                             <th className={`${TH} text-center`}>Token</th>
                             <th className={`${TH} text-center`}>Detail</th>
-                            <th className={`${TH} pr-6 text-center`}>
-                                <button
-                                    type="button"
-                                    onClick={onToggleEdit}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-[13px] transition-colors cursor-pointer font-semibold shadow-sm border-0">
-                                    {isEditMode ? "Selesai" : "Edit"}
-                                </button>
-                            </th>
+                            <th className={`${TH} pr-6 text-center`}>Edit</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -81,26 +67,22 @@ export default function SejarahTable({
                                     </div>
                                 </td>
                                 <td className={`${TD} pr-6 text-center`}>
-                                    {isEditMode && (
-                                        <div className="flex justify-center items-center gap-3 animate-in fade-in zoom-in duration-200">
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    onDelete(item.id)
-                                                }
-                                                title="Hapus Koleksi"
-                                                className="text-red-500 hover:text-red-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => onEdit(item)}
-                                                title="Edit Koleksi"
-                                                className="text-blue-500 hover:text-blue-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
-                                                <Edit3 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
+                                    <div className="flex justify-center items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => onDelete(item.id)}
+                                            title="Hapus Koleksi"
+                                            className="text-red-500 hover:text-red-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onEdit(item)}
+                                            title="Edit Koleksi"
+                                            className="text-blue-500 hover:text-blue-700 transition-colors bg-transparent border-0 cursor-pointer p-1">
+                                            <Edit3 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
