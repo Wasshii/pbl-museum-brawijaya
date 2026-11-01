@@ -1,7 +1,9 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
+import { CACHE_KEYS } from "@/lib/cache";
 import * as feedbackService from "@/services/feedback.service";
 import type { FeedbackData } from "@/types/feedback";
 
@@ -16,11 +18,33 @@ export const STATUS_FILTERS = [
 ] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
+const DAFTAR_KOSONG: FeedbackData[] = [];
+
 export function useFeedback() {
     const { notify } = useToast();
 
-    const [feedbacks, setFeedbacks] = useState<FeedbackData[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Data feedback: dari cache (5 menit) bila ada, kalau tidak dari API
+    const {
+        data,
+        loading,
+        refetch: fetchFeedbacks,
+    } = useCache<FeedbackData[]>(
+        CACHE_KEYS.feedback,
+        feedbackService.getFeedbacks,
+        {
+            onError: (error) =>
+                notify({
+                    type: "error",
+                    title: "Gagal",
+                    message: getErrorMessage(
+                        error,
+                        "Gagal memuat data feedback",
+                    ),
+                }),
+        },
+    );
+    const feedbacks = data ?? DAFTAR_KOSONG;
+
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
@@ -29,27 +53,6 @@ export function useFeedback() {
     const [selectedFeedback, setSelectedFeedback] =
         useState<FeedbackData | null>(null);
     const [replyText, setReplyText] = useState("");
-
-    const fetchFeedbacks = async () => {
-        setLoading(true);
-        try {
-            const data = await feedbackService.getFeedbacks();
-            setFeedbacks(data);
-        } catch (error) {
-            notify({
-                type: "error",
-                title: "Gagal",
-                message: getErrorMessage(error, "Gagal memuat data feedback"),
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchFeedbacks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Status diturunkan dari kolom balasan_admin (backend mengirimnya sebagai `balasan`)
     const filteredFeedbacks = useMemo(() => {
@@ -98,7 +101,7 @@ export function useFeedback() {
                 message: `Balasan untuk ulasan dari ${namaUser} telah berhasil dikirim.`,
             });
             handleCloseModal();
-            fetchFeedbacks(); // ambil ulang dari database agar status ikut terbarui
+            fetchFeedbacks(); // ambil ulang dari database, cache ikut diperbarui
         } catch (error) {
             notify({
                 type: "error",

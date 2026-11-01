@@ -1,12 +1,15 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
+import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import { formatRupiah } from "@/lib/format";
 import * as keuanganService from "@/services/keuangan.service";
 import type {
     BatasPencairan,
     IsiSaldoInput,
+    KeuanganResponse,
     KeuanganSummary,
     PencairanInput,
     Tarif,
@@ -25,6 +28,7 @@ export interface RentangTanggal {
     sampai: string;
 }
 
+const TRANSAKSI_KOSONG: TransaksiData[] = [];
 const SUMMARY_KOSONG: KeuanganSummary = {
     totalPemasukan: 0,
     totalPengeluaran: 0,
@@ -40,11 +44,32 @@ const BATAS_KOSONG: BatasPencairan = {
 export function useKeuangan() {
     const { notify } = useToast();
 
-    const [transaksi, setTransaksi] = useState<TransaksiData[]>([]);
-    const [summary, setSummary] = useState<KeuanganSummary>(SUMMARY_KOSONG);
-    const [tarif, setTarif] = useState<Tarif>(TARIF_KOSONG);
-    const [batas, setBatas] = useState<BatasPencairan>(BATAS_KOSONG);
-    const [loading, setLoading] = useState(true);
+    // Satu paket data dari GET /api/keuangan (transaksi, ringkasan, tarif, batas):
+    // dari cache (5 menit) bila ada, kalau tidak dari API
+    const {
+        data: respons,
+        loading,
+        refetch: fetchKeuangan,
+    } = useCache<KeuanganResponse>(
+        CACHE_KEYS.keuangan,
+        keuanganService.getKeuangan,
+        {
+            onError: (error) =>
+                notify({
+                    type: "error",
+                    title: "Gagal",
+                    message: getErrorMessage(
+                        error,
+                        "Gagal memuat data keuangan",
+                    ),
+                }),
+        },
+    );
+    const transaksi = respons?.data ?? TRANSAKSI_KOSONG;
+    const summary = respons?.summary ?? SUMMARY_KOSONG;
+    const tarif = respons?.tarif ?? TARIF_KOSONG;
+    const batas = respons?.batasPencairan ?? BATAS_KOSONG;
+
     const [submitting, setSubmitting] = useState(false);
 
     const [tab, setTab] = useState<TabKeuangan>("masuk");
@@ -56,30 +81,6 @@ export function useKeuangan() {
 
     const [modalAktif, setModalAktif] = useState<ModalKeuangan>(null);
     const [detail, setDetail] = useState<TransaksiData | null>(null);
-
-    const fetchKeuangan = async () => {
-        setLoading(true);
-        try {
-            const res = await keuanganService.getKeuangan();
-            setTransaksi(res.data);
-            setSummary(res.summary);
-            setTarif(res.tarif);
-            setBatas(res.batasPencairan);
-        } catch (error) {
-            notify({
-                type: "error",
-                title: "Gagal",
-                message: getErrorMessage(error, "Gagal memuat data keuangan"),
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchKeuangan();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Filter tanggal + cari Id Trx. Kartu di atas TIDAK ikut filter (total keseluruhan);
     // angka di tab dan isi tabel ikut filter. Tanggal dibandingkan sebagai teks
@@ -131,7 +132,8 @@ export function useKeuangan() {
             }
 
             setModalAktif(null);
-            await fetchKeuangan();
+            removeCache(CACHE_KEYS.dashboard); // saldo di dashboard ikut berubah
+            await fetchKeuangan(); // ambil ulang, cache keuangan ikut diperbarui
             return true;
         } catch (error) {
             notify({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { clearAllCache } from "@/lib/cache";
 
 // ==========================================
 // 1. Session Management
@@ -12,6 +13,7 @@ export function getToken(): string | null {
 }
 
 export function saveSession(token: string, role?: string) {
+    clearAllCache(); // login baru selalu mulai dari cache kosong
     localStorage.setItem(TOKEN_KEY, token);
     if (role) localStorage.setItem(ROLE_KEY, role);
 }
@@ -19,6 +21,7 @@ export function saveSession(token: string, role?: string) {
 export function clearSession() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
+    clearAllCache(); // data admin tidak boleh tersisa setelah logout
 }
 
 // ==========================================

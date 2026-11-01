@@ -1,32 +1,41 @@
 "use client";
-import { useState, useEffect } from "react";
 import { api } from "@/lib/api"; // Import API axios yang sudah ada tokennya
+import { CACHE_KEYS } from "@/lib/cache";
+import { useCache } from "@/hooks/useCache";
+
+interface DashboardStats {
+    totalUser: number;
+    totalKoleksi: number;
+    saldoKeuangan: number;
+    totalUlasan: number;
+}
+
+const STATS_KOSONG: DashboardStats = {
+    totalUser: 0,
+    totalKoleksi: 0,
+    saldoKeuangan: 0,
+    totalUlasan: 0,
+};
+
+const fetchStats = async (): Promise<DashboardStats> => {
+    const response = await api.get("/api/dashboard");
+    // Dilempar sebagai error supaya respons gagal tidak ikut tersimpan di cache
+    if (!response.data.success) {
+        throw new Error("Respons dashboard tidak berhasil");
+    }
+    return response.data.data;
+};
+
+const handleError = (error: unknown) => {
+    console.error("Gagal mengambil data dashboard:", error);
+};
 
 export function useDashboard() {
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({
-        totalUser: 0,
-        totalKoleksi: 0,
-        saldoKeuangan: 0,
-        totalUlasan: 0,
-    });
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await api.get("/api/dashboard");
-                if (response.data.success) {
-                    setStats(response.data.data);
-                }
-            } catch (error) {
-                console.error("Gagal mengambil data dashboard:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
-    }, []);
+    const { data, loading } = useCache<DashboardStats>(
+        CACHE_KEYS.dashboard,
+        fetchStats,
+        { onError: handleError },
+    );
 
     const formatRupiah = (angka: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -36,5 +45,5 @@ export function useDashboard() {
         }).format(angka);
     };
 
-    return { stats, loading, formatRupiah };
+    return { stats: data ?? STATS_KOSONG, loading, formatRupiah };
 }

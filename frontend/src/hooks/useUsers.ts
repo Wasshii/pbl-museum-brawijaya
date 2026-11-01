@@ -1,29 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
+import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import * as userService from "@/services/user.service";
 import type { User, UserFormValues } from "@/types/user";
 
+const DAFTAR_KOSONG: User[] = [];
+
 export function useUsers() {
     const { notify } = useToast();
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
 
-    // Data dibaca setelah komponen tampil (bukan di dalam useState) supaya
-    // hasil render di server dan di browser sama, tidak memicu hydration mismatch.
-    useEffect(() => {
-        let active = true;
-        userService.getUsers().then((data) => {
-            if (!active) return;
-            setUsers(data);
-            setLoading(false);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    // Data user: dari cache (5 menit) bila ada, kalau tidak dari API.
+    // `update` mengubah tampilan sekaligus cache tanpa memuat ulang dari API.
+    const { data, loading, update } = useCache<User[]>(
+        CACHE_KEYS.users,
+        userService.getUsers,
+    );
+    const users = data ?? DAFTAR_KOSONG;
+
+    const [search, setSearch] = useState("");
 
     // Filter pencarian: nama, email, atau nomor telepon
     const filteredUsers = useMemo(() => {
@@ -38,7 +35,8 @@ export function useUsers() {
 
     const addUser = async (values: UserFormValues) => {
         const created = await userService.createUser(values);
-        setUsers((prev) => [created, ...prev]);
+        update((prev) => [created, ...prev]);
+        removeCache(CACHE_KEYS.dashboard); // jumlah user di dashboard bertambah
         notify({
             type: "create",
             title: "User ditambahkan",
@@ -48,7 +46,7 @@ export function useUsers() {
 
     const editUser = async (user: User) => {
         await userService.updateUser(user);
-        setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+        update((prev) => prev.map((u) => (u.id === user.id ? user : u)));
         notify({
             type: "edit",
             title: "Data diperbarui",
@@ -58,7 +56,8 @@ export function useUsers() {
 
     const removeUser = async (user: User) => {
         await userService.deleteUser(user.id);
-        setUsers((prev) => prev.filter((u) => u.id !== user.id));
+        update((prev) => prev.filter((u) => u.id !== user.id));
+        removeCache(CACHE_KEYS.dashboard); // jumlah user di dashboard berkurang
         notify({
             type: "delete",
             title: "User dihapus",
