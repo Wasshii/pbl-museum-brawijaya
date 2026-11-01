@@ -1,0 +1,1585 @@
+Directory structure:
+└── backend/
+    ├── index.js
+    ├── package.json
+    ├── .env.example
+    ├── config/
+    │   ├── db.js
+    │   ├── pencairan.js
+    │   └── tarif.js
+    ├── controllers/
+    │   ├── auth.controller.js
+    │   ├── dashboard.controller.js
+    │   ├── feedback.controller.js
+    │   ├── keuangan.controller.js
+    │   ├── koleksi.controller.js
+    │   └── pengunjung.controller.js
+    ├── lib/
+    │   └── jwt.js
+    ├── middleware/
+    │   ├── auth.middleware.js
+    │   ├── upload.middleware.js
+    │   └── validate.middleware.js
+    ├── models/
+    │   ├── dashboard.model.js
+    │   ├── feedback.model.js
+    │   ├── keuangan.model.js
+    │   ├── koleksi.model.js
+    │   ├── pengunjung.model.js
+    │   └── user.model.js
+    ├── routes/
+    │   ├── auth.routes.js
+    │   ├── dashboard.routes.js
+    │   ├── feedback.routes.js
+    │   ├── keuangan.routes.js
+    │   ├── koleksi.routes.js
+    │   └── pengunjung.routes.js
+    └── schemas/
+        ├── auth.schema.js
+        ├── feedback.schema.js
+        ├── keuangan.schema.js
+        ├── koleksi.schema.js
+        └── pengunjung.schema.js
+
+================================================
+FILE: index.js
+================================================
+require("dotenv").config();
+const path = require("path"); // <-- Tambahan sesuai instruksi
+const express = require("express");
+const cors = require("cors");
+const authRoutes = require("./routes/auth.routes");
+const koleksiRoutes = require("./routes/koleksi.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+const keuanganRoutes = require("./routes/keuangan.routes");
+const pengunjungRoutes = require("./routes/pengunjung.routes");
+const feedbackRoutes = require("./routes/feedback.routes");
+
+// (Baris 11 dihapus jika User sudah tidak dipakai di bawah)
+// const User = require("./models/user.model");
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors({ origin: process.env.CORS_ORIGIN }));
+app.use(express.json());
+
+// --- Tambahan sesuai instruksi ---
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// --- BARIS INI SUDAH DIHAPUS ---
+// User.initAdmin();
+
+app.use("/api/auth", authRoutes);
+app.use("/api/koleksi", koleksiRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/keuangan", keuanganRoutes);
+app.use("/api/pengunjung", pengunjungRoutes);
+app.use("/api/feedback", feedbackRoutes);
+
+app.listen(PORT, () => {
+    console.log(`Server Backend berjalan di http://localhost:${PORT}`);
+});
+
+
+
+================================================
+FILE: package.json
+================================================
+{
+    "name": "backend",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "dev": "nodemon index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "dependencies": {
+        "bcrypt": "^6.0.0",
+        "bcryptjs": "^3.0.3",
+        "cors": "^2.8.6",
+        "dotenv": "^18.0.9",
+        "express": "^5.2.1",
+        "express-validator": "^7.3.2",
+        "jsonwebtoken": "^9.0.3",
+        "multer": "^2.5.0",
+        "mysql2": "^3.24.5",
+        "zod": "^4.6.7"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14"
+    }
+}
+
+
+
+================================================
+FILE: .env.example
+================================================
+PORT=5000
+JWT_SECRET=isi_dengan_secret_key_bebas
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=db_museum_brawijaya
+CORS_ORIGIN=http://localhost:3000
+ADMIN_EMAIL=admin@tiket.com
+ADMIN_PASSWORD=isi_dengan_password_bebas
+
+
+================================================
+FILE: config/db.js
+================================================
+const mysql = require("mysql2/promise");
+
+const db = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+});
+
+module.exports = db;
+
+
+
+================================================
+FILE: config/pencairan.js
+================================================
+// Batas total pencairan per bulan kalender (simulasi).
+// Dihitung dari semua pencairan berstatus Berhasil pada bulan berjalan,
+// dan kembali ke nol setiap tanggal 1. Ubah angka di sini kalau batasnya berubah.
+// Patokan besaran: batas transaksi bulanan uang elektronik Bank Indonesia (Rp 20 juta).
+const BATAS_PENCAIRAN_PER_BULAN = 20000000;
+
+module.exports = { BATAS_PENCAIRAN_PER_BULAN };
+
+
+
+================================================
+FILE: config/tarif.js
+================================================
+// Harga tiket (simulasi). Ubah angka di sini kalau harga berubah.
+// Nominal tiap transaksi disimpan di tabel keuangan, jadi transaksi lama
+// tidak ikut berubah ketika harga diganti.
+const HARGA_TIKET = 10000; // per tiket (Mandiri maupun Guide)
+const BIAYA_PEMANDU = 50000; // sekali per transaksi, hanya untuk jenis Guide
+
+// 2 tiket Mandiri = 20.000 | 1 tiket Guide = 60.000 | 2 tiket Guide = 70.000
+const hitungNominal = (jumlahTiket, jenisTiket) =>
+    jumlahTiket * HARGA_TIKET + (jenisTiket === "Guide" ? BIAYA_PEMANDU : 0);
+
+module.exports = { HARGA_TIKET, BIAYA_PEMANDU, hitungNominal };
+
+
+
+================================================
+FILE: controllers/auth.controller.js
+================================================
+const bcrypt = require("bcrypt");
+const crypto = require("crypto"); // TAMBAHAN: Import modul crypto bawaan Node.js
+const User = require("../models/user.model");
+const { createToken } = require("../lib/jwt");
+
+exports.login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findByEmail(email);
+
+        // REVISI: Pesan error disamakan agar tidak membocorkan apakah email terdaftar atau tidak
+        if (!user)
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Email atau kata sandi salah",
+                });
+
+        const isValid = await bcrypt.compare(password, user.password);
+
+        // REVISI: Pesan error disamakan
+        if (!isValid)
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Email atau kata sandi salah",
+                });
+
+        const token = createToken(user);
+        res.json({
+            success: true,
+            message: "Login berhasil",
+            token,
+            user: { email: user.email, role: user.role },
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan server",
+        });
+    }
+};
+
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findByEmail(email);
+        if (!user)
+            return res
+                .status(404)
+                .json({ success: false, message: "Email tidak terdaftar" });
+
+        // REVISI: Menggunakan crypto.randomInt untuk angka acak yang lebih aman
+        const code = crypto.randomInt(100000, 999999).toString();
+
+        await User.saveResetCode(email, code);
+
+        // Simulasi pengiriman email (di proyek nyata gunakan Nodemailer)
+        console.log(
+            `[SIMULASI EMAIL] Kode reset untuk ${email} adalah: ${code}`,
+        );
+
+        res.json({
+            success: true,
+            message: "Kode reset telah dikirim (Cek terminal backend)",
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan server",
+        });
+    }
+};
+
+exports.verifyResetCode = async (req, res) => {
+    try {
+        const { email, code } = req.body;
+        const user = await User.findByEmailAndResetCode(email, code);
+
+        if (!user)
+            return res.status(400).json({
+                success: false,
+                message: "Kode tidak valid atau kedaluwarsa",
+            });
+        res.json({ success: true, message: "Kode valid" });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan server",
+        });
+    }
+};
+
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        const user = await User.findByEmailAndResetCode(email, code);
+
+        if (!user)
+            return res.status(400).json({
+                success: false,
+                message: "Kode tidak valid atau kedaluwarsa",
+            });
+
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await User.updatePassword(email, hashed);
+
+        res.json({ success: true, message: "Kata sandi berhasil diperbarui" });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Terjadi kesalahan server",
+        });
+    }
+};
+
+
+
+================================================
+FILE: controllers/dashboard.controller.js
+================================================
+const Dashboard = require("../models/dashboard.model");
+
+exports.getDashboardStats = async (req, res) => {
+    try {
+        const stats = await Dashboard.getStats();
+        res.json({
+            success: true,
+            data: stats,
+        });
+    } catch (error) {
+        console.error("[DASHBOARD ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengambil statistik dashboard",
+        });
+    }
+};
+
+
+
+================================================
+FILE: controllers/feedback.controller.js
+================================================
+const Feedback = require("../models/feedback.model");
+
+exports.getSemuaFeedback = async (req, res) => {
+    try {
+        const data = await Feedback.getAll();
+
+        // Memformat data agar sesuai dengan struktur tabel di Frontend
+        const formattedData = data.map((item) => ({
+            id: item.id,
+            nama_user: item.nama,
+            rating: item.rating,
+            komentar: item.ulasan,
+            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            tanggal: new Date(item.tanggal).toLocaleDateString("sv-SE"),
+            balasan: item.balasan_admin || null,
+        }));
+
+        res.json({ success: true, data: formattedData });
+    } catch (error) {
+        console.error("[FEEDBACK ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengambil data ulasan",
+        });
+    }
+};
+
+exports.balasFeedback = async (req, res) => {
+    try {
+        const { replyText } = req.body;
+        await Feedback.reply(req.params.id, replyText);
+        res.json({ success: true, message: "Balasan berhasil dikirim" });
+    } catch (error) {
+        console.error("[FEEDBACK ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengirim balasan",
+        });
+    }
+};
+
+
+
+================================================
+FILE: controllers/keuangan.controller.js
+================================================
+const Keuangan = require("../models/keuangan.model");
+const {
+    HARGA_TIKET,
+    BIAYA_PEMANDU,
+    hitungNominal,
+} = require("../config/tarif");
+
+// Isi Saldo lewat web admin = bayar tunai di loket (dibantu staff).
+// Pembayaran non tunai nanti datang dari aplikasi mobile.
+const PEMBAYARAN_WEB_ADMIN = "Tunai";
+
+// Bentuk JSON yang dikirim ke web (Next.js) dan nanti ke mobile (Flutter)
+const formatTransaksi = (item) => ({
+    id: item.id,
+    idTrx: item.id_trx,
+    tanggal: item.tanggal.toLocaleDateString("sv-SE"), // YYYY-MM-DD (waktu lokal)
+    deskripsi: item.keterangan,
+    tipe: item.jenis.toLowerCase(), // 'Pemasukan' -> 'pemasukan'
+    jumlah: Number(item.nominal),
+    status: String(item.status || "Berhasil").toLowerCase(),
+    nama: item.nama,
+    noTelepon: item.no_telepon,
+    jumlahTiket: item.jumlah_tiket,
+    jenisTiket: item.jenis_tiket,
+    jenisPembayaran: item.jenis_pembayaran,
+    jenisPencairan: item.jenis_pencairan,
+    noRekening: item.no_rekening,
+});
+
+exports.getSemuaKeuangan = async (req, res) => {
+    try {
+        const [rows, summary, batasPencairan] = await Promise.all([
+            Keuangan.getAll(),
+            Keuangan.getSummary(),
+            Keuangan.getBatasPencairan(),
+        ]);
+
+        res.json({
+            success: true,
+            data: rows.map(formatTransaksi),
+            summary, // { totalPemasukan, totalPengeluaran, saldo }
+            tarif: { hargaTiket: HARGA_TIKET, biayaPemandu: BIAYA_PEMANDU },
+            batasPencairan, // { maksimumPerBulan, terpakaiBulanIni, sisa }
+        });
+    } catch (error) {
+        console.error("[KEUANGAN ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengambil data keuangan",
+        });
+    }
+};
+
+exports.tambahKeuangan = async (req, res) => {
+    try {
+        const b = req.body; // sudah divalidasi & dibersihkan oleh keuangan.schema
+        let hasil;
+        let nominal;
+        let message;
+
+        if (b.tipe === "pemasukan") {
+            nominal = hitungNominal(b.jumlahTiket, b.jenisTiket);
+            hasil = await Keuangan.create({
+                jenis: "Pemasukan",
+                nominal,
+                keterangan: b.deskripsi || `Isi saldo - ${b.nama}`,
+                nama: b.nama,
+                noTelepon: b.noTelepon,
+                jumlahTiket: b.jumlahTiket,
+                jenisTiket: b.jenisTiket,
+                jenisPembayaran: PEMBAYARAN_WEB_ADMIN,
+            });
+            message = "Saldo berhasil ditambahkan";
+        } else {
+            nominal = b.jumlah;
+            hasil = await Keuangan.createPencairan({
+                jenis: "Pengeluaran",
+                nominal,
+                keterangan:
+                    b.deskripsi || `Pencairan dana ke ${b.jenisPencairan}`,
+                nama: b.nama,
+                jenisPencairan: b.jenisPencairan,
+                noRekening: b.noRekening,
+            });
+            message = "Pencairan berhasil diproses";
+        }
+
+        res.status(201).json({
+            success: true,
+            message,
+            id: hasil.id,
+            idTrx: hasil.idTrx,
+            jumlah: nominal,
+        });
+    } catch (error) {
+        // Galat yang sengaja dilempar model (saldo kurang, server sibuk)
+        if (error.status) {
+            return res
+                .status(error.status)
+                .json({ success: false, message: error.message });
+        }
+        console.error("[KEUANGAN ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal menyimpan transaksi keuangan",
+        });
+    }
+};
+
+
+
+================================================
+FILE: controllers/koleksi.controller.js
+================================================
+const Koleksi = require("../models/koleksi.model");
+const {
+    hapusFileGambar,
+    PUBLIC_PREFIX,
+} = require("../middleware/upload.middleware");
+
+// Dipakai jika koleksi dibuat tanpa gambar (sama dengan DEFAULT_KOLEKSI_IMAGE di frontend)
+const DEFAULT_GAMBAR =
+    "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80";
+
+// Path yang disimpan di database, contoh: /uploads/koleksi/koleksi-1730000000000-ab12cd34ef56.jpg
+const pathGambar = (file) => (file ? `${PUBLIC_PREFIX}${file.filename}` : null);
+
+const isTokenKembar = (error) => error && error.code === "ER_DUP_ENTRY";
+
+exports.getSemuaKoleksi = async (req, res) => {
+    try {
+        const data = await Koleksi.getAll();
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengambil data",
+        });
+    }
+};
+
+exports.tambahKoleksi = async (req, res) => {
+    // Field "gambar" dari body sengaja diabaikan; yang dipakai hanya file hasil upload
+    const gambar = pathGambar(req.file) || DEFAULT_GAMBAR;
+    try {
+        const insertId = await Koleksi.create({ ...req.body, gambar });
+        res.status(201).json({
+            success: true,
+            message: "Data koleksi berhasil ditambahkan",
+            id: insertId,
+        });
+    } catch (error) {
+        hapusFileGambar(gambar); // jangan tinggalkan file yatim jika insert gagal
+        if (isTokenKembar(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Token sudah digunakan, gunakan token lain.",
+            });
+        }
+        res.status(500).json({
+            success: false,
+            message: "Gagal menambah data, pastikan token unik!",
+        });
+    }
+};
+
+exports.ubahKoleksi = async (req, res) => {
+    const gambarBaru = pathGambar(req.file);
+    try {
+        const lama = await Koleksi.getById(req.params.id);
+        if (!lama) {
+            hapusFileGambar(gambarBaru);
+            return res.status(404).json({
+                success: false,
+                message: "Data koleksi tidak ditemukan",
+            });
+        }
+
+        // Tidak upload gambar baru -> pertahankan gambar lama
+        await Koleksi.update(req.params.id, {
+            ...req.body,
+            gambar: gambarBaru || lama.gambar,
+        });
+
+        if (gambarBaru) hapusFileGambar(lama.gambar); // buang file lama yang sudah tergantikan
+        res.json({ success: true, message: "Data berhasil diperbarui" });
+    } catch (error) {
+        hapusFileGambar(gambarBaru);
+        if (isTokenKembar(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Token sudah digunakan, gunakan token lain.",
+            });
+        }
+        res.status(500).json({
+            success: false,
+            message: "Gagal memperbarui data",
+        });
+    }
+};
+
+exports.hapusKoleksi = async (req, res) => {
+    try {
+        const lama = await Koleksi.getById(req.params.id);
+        await Koleksi.delete(req.params.id);
+        if (lama) hapusFileGambar(lama.gambar);
+        res.json({ success: true, message: "Data berhasil dihapus" });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Gagal menghapus data",
+        });
+    }
+};
+
+
+
+================================================
+FILE: controllers/pengunjung.controller.js
+================================================
+const Pengunjung = require("../models/pengunjung.model");
+
+// Avatar default sementara jika user belum punya foto
+const DUMMY_AVATAR =
+    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80";
+
+exports.getSemuaPengunjung = async (req, res) => {
+    try {
+        const data = await Pengunjung.getAll();
+
+        // Sesuaikan format data MySQL dengan tipe TypeScript di Frontend
+        const formattedData = data.map((item) => ({
+            id: item.id,
+            name: item.nama,
+            phone: item.no_telp,
+            email: item.email,
+            address: item.alamat,
+            status: item.status,
+            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
+                "sv-SE",
+            ),
+            avatar: item.avatar || DUMMY_AVATAR,
+        }));
+
+        res.json({ success: true, data: formattedData });
+    } catch (error) {
+        console.error("[USER ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengambil data pengunjung",
+        });
+    }
+};
+
+exports.tambahPengunjung = async (req, res) => {
+    try {
+        const { name, phone, email, address, status } = req.body;
+        const insertId = await Pengunjung.create({
+            nama: name,
+            no_telp: phone,
+            email: email,
+            alamat: address,
+            status: status,
+            avatar: DUMMY_AVATAR,
+        });
+        res.status(201).json({
+            success: true,
+            message: "Berhasil",
+            id: insertId,
+        });
+    } catch (error) {
+        console.error("[USER ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal menambah data (Email mungkin sudah terdaftar)",
+        });
+    }
+};
+
+exports.ubahPengunjung = async (req, res) => {
+    try {
+        const { name, phone, email, address, status } = req.body;
+        await Pengunjung.update(req.params.id, {
+            nama: name,
+            no_telp: phone,
+            email: email,
+            alamat: address,
+            status: status,
+        });
+        res.json({ success: true, message: "Berhasil diperbarui" });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Gagal memperbarui data",
+        });
+    }
+};
+
+exports.hapusPengunjung = async (req, res) => {
+    try {
+        await Pengunjung.delete(req.params.id);
+        res.json({ success: true, message: "Berhasil dihapus" });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Gagal menghapus data",
+        });
+    }
+};
+
+
+
+================================================
+FILE: lib/jwt.js
+================================================
+const jwt = require("jsonwebtoken");
+
+exports.createToken = (user) =>
+    jwt.sign(
+        { id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "1d" },
+    );
+
+exports.verifyToken = (token) => jwt.verify(token, process.env.JWT_SECRET);
+
+
+
+================================================
+FILE: middleware/auth.middleware.js
+================================================
+const { verifyToken } = require("../lib/jwt");
+
+// Fungsi satpam untuk mengecek token
+const authenticate = (req, res, next) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return res
+                .status(401)
+                .json({
+                    success: false,
+                    message: "Akses ditolak. Token tidak ditemukan.",
+                });
+        }
+
+        const token = authHeader.split(" ")[1];
+        const decoded = verifyToken(token);
+
+        req.user = decoded; // Simpan data user (dari token) ke request
+        next(); // Lanjut ke proses berikutnya
+    } catch (error) {
+        return res
+            .status(401)
+            .json({
+                success: false,
+                message: "Token tidak valid atau sudah kedaluwarsa.",
+            });
+    }
+};
+
+// Fungsi satpam khusus untuk memastikan yang login adalah admin
+const requireAdmin = (req, res, next) => {
+    if (req.user.role !== "admin") {
+        return res
+            .status(403)
+            .json({
+                success: false,
+                message: "Akses ditolak. Hanya admin yang diizinkan.",
+            });
+    }
+    next();
+};
+
+module.exports = { authenticate, requireAdmin };
+
+
+
+================================================
+FILE: middleware/upload.middleware.js
+================================================
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const multer = require("multer");
+
+// File disimpan di backend/uploads/koleksi dan diakses lewat /uploads/koleksi/<nama-file>
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "koleksi");
+const PUBLIC_PREFIX = "/uploads/koleksi/";
+
+// Samakan dengan MAX_IMAGE_MB di frontend (src/lib/validations/koleksi.ts)
+const MAX_IMAGE_MB = 1;
+
+const EXT_BY_MIME = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+};
+
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => {
+        // Nama dibuat sendiri (bukan dari nama file asli) agar aman dan tidak bentrok
+        const unik = crypto.randomBytes(6).toString("hex");
+        cb(null, `koleksi-${Date.now()}-${unik}${EXT_BY_MIME[file.mimetype]}`);
+    },
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: MAX_IMAGE_MB * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => {
+        if (!EXT_BY_MIME[file.mimetype]) {
+            const err = new Error("Hanya menerima file JPG atau PNG.");
+            err.code = "INVALID_FILE_TYPE";
+            return cb(err);
+        }
+        cb(null, true);
+    },
+}).single("gambar"); // nama field di FormData frontend
+
+// Dipasang SETELAH authenticate/requireAdmin dan SEBELUM validate(),
+// karena body berbentuk multipart sehingga baru terbaca setelah multer jalan.
+const uploadGambar = (req, res, next) => {
+    upload(req, res, (err) => {
+        if (!err) return next();
+
+        if (err instanceof multer.MulterError) {
+            const message =
+                err.code === "LIMIT_FILE_SIZE"
+                    ? `Ukuran gambar maksimal ${MAX_IMAGE_MB} MB.`
+                    : err.message;
+            return res.status(400).json({ success: false, message });
+        }
+        if (err.code === "INVALID_FILE_TYPE") {
+            return res
+                .status(400)
+                .json({ success: false, message: err.message });
+        }
+        return res
+            .status(500)
+            .json({ success: false, message: "Gagal mengunggah gambar." });
+    });
+};
+
+// Hapus file lokal dari disk. URL luar (mis. Unsplash) atau path lain diabaikan.
+const hapusFileGambar = (gambar) => {
+    if (typeof gambar !== "string" || !gambar.startsWith(PUBLIC_PREFIX)) return;
+    const namaFile = path.basename(gambar); // basename mencegah path traversal
+    fs.unlink(path.join(UPLOAD_DIR, namaFile), () => {});
+};
+
+module.exports = { uploadGambar, hapusFileGambar, PUBLIC_PREFIX };
+
+
+
+================================================
+FILE: middleware/validate.middleware.js
+================================================
+const fs = require("fs"); // <-- Tambahan sesuai instruksi
+
+module.exports = (schema) => (req, res, next) => {
+    const hasil = schema.safeParse(req.body);
+    if (!hasil.success) {
+        // --- Tambahan sesuai instruksi ---
+        if (req.file) fs.unlink(req.file.path, () => {});
+
+        const errors = hasil.error.issues.map((i) => ({
+            field: i.path.join("."),
+            message: i.message,
+        }));
+        // Mengirimkan pesan error pertama agar langsung terbaca oleh frontend
+        return res
+            .status(400)
+            .json({ success: false, message: errors[0].message, errors });
+    }
+    req.body = hasil.data; // Mengganti req.body dengan data yang sudah bersih (ter-trim)
+    next();
+};
+
+
+
+================================================
+FILE: models/dashboard.model.js
+================================================
+const db = require("../config/db");
+
+const Dashboard = {
+    getStats: async () => {
+        const [[userResult]] = await db.query(
+            "SELECT COUNT(*) as total FROM pengunjung",
+        );
+        const [[koleksiResult]] = await db.query(
+            "SELECT COUNT(*) as total FROM koleksi",
+        );
+        const [[pemasukanResult]] = await db.query(
+            "SELECT SUM(nominal) as total FROM keuangan WHERE jenis = 'Pemasukan'",
+        );
+        const [[pengeluaranResult]] = await db.query(
+            "SELECT SUM(nominal) as total FROM keuangan WHERE jenis = 'Pengeluaran'",
+        );
+        const [[feedbackResult]] = await db.query(
+            "SELECT COUNT(*) as total FROM feedback",
+        );
+
+        const totalPemasukan = Number(pemasukanResult.total) || 0;
+        const totalPengeluaran = Number(pengeluaranResult.total) || 0;
+
+        return {
+            totalUser: userResult.total,
+            totalKoleksi: koleksiResult.total,
+            saldoKeuangan: totalPemasukan - totalPengeluaran,
+            totalUlasan: feedbackResult.total,
+        };
+    },
+};
+
+module.exports = Dashboard;
+
+
+
+================================================
+FILE: models/feedback.model.js
+================================================
+const db = require("../config/db");
+
+const Feedback = {
+    getAll: async () => {
+        const [rows] = await db.query(
+            "SELECT * FROM feedback ORDER BY tanggal DESC",
+        );
+        return rows;
+    },
+    // Fungsi khusus untuk admin membalas ulasan
+    reply: async (id, balasan) => {
+        await db.query(
+            "UPDATE feedback SET balasan_admin = ?, status = 'Telah Di Balas' WHERE id = ?",
+            [balasan, id],
+        );
+    },
+};
+
+module.exports = Feedback;
+
+
+
+================================================
+FILE: models/keuangan.model.js
+================================================
+const crypto = require("crypto");
+const db = require("../config/db");
+const { BATAS_PENCAIRAN_PER_BULAN } = require("../config/pencairan");
+
+const NAMA_LOCK = "keuangan_pencairan";
+
+const galat = (message, status) =>
+    Object.assign(new Error(message), { status });
+
+// Id Trx: 10 digit angka acak (boleh diawali 0), contoh: 0556277831.
+// Dibuat di backend, bukan dari urutan id, jadi tidak bisa ditebak.
+const buatIdTrx = () =>
+    String(crypto.randomInt(0, 10_000_000_000)).padStart(10, "0");
+
+const SQL_INSERT = `
+    INSERT INTO keuangan
+        (id_trx, jenis, nominal, keterangan, nama, no_telepon, jumlah_tiket,
+         jenis_tiket, jenis_pembayaran, jenis_pencairan, no_rekening)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+// Simpan 1 baris. Kalau Id Trx kebetulan kembar (UNIQUE), buat ulang.
+const insert = async (conn, d) => {
+    for (let percobaan = 0; percobaan < 5; percobaan++) {
+        const idTrx = buatIdTrx();
+        try {
+            const [result] = await conn.query(SQL_INSERT, [
+                idTrx,
+                d.jenis,
+                d.nominal,
+                d.keterangan,
+                d.nama ?? null,
+                d.noTelepon ?? null,
+                d.jumlahTiket ?? null,
+                d.jenisTiket ?? null,
+                d.jenisPembayaran ?? null,
+                d.jenisPencairan ?? null,
+                d.noRekening ?? null,
+            ]);
+            return { id: result.insertId, idTrx };
+        } catch (err) {
+            if (err.code !== "ER_DUP_ENTRY") throw err;
+        }
+    }
+    throw new Error("Gagal membuat Id Trx yang unik");
+};
+
+// Saldo = SUM(pemasukan) - SUM(pengeluaran), hanya transaksi berstatus Berhasil.
+// Transaksi Pending / Gagal belum / tidak dihitung.
+const SQL_RINGKASAN = `
+    SELECT
+        COALESCE(SUM(CASE WHEN jenis = 'Pemasukan'   THEN nominal END), 0) AS pemasukan,
+        COALESCE(SUM(CASE WHEN jenis = 'Pengeluaran' THEN nominal END), 0) AS pengeluaran
+    FROM keuangan
+    WHERE status = 'Berhasil'`;
+
+// Total pencairan berhasil pada bulan kalender berjalan (memakai jam server database)
+const SQL_PENCAIRAN_BULAN_INI = `
+    SELECT COALESCE(SUM(nominal), 0) AS total
+    FROM keuangan
+    WHERE jenis = 'Pengeluaran'
+      AND status = 'Berhasil'
+      AND YEAR(tanggal) = YEAR(CURDATE())
+      AND MONTH(tanggal) = MONTH(CURDATE())`;
+
+const Keuangan = {
+    getAll: async () => {
+        const [rows] = await db.query(
+            "SELECT * FROM keuangan ORDER BY tanggal DESC, id DESC",
+        );
+        return rows;
+    },
+
+    getSummary: async (conn = db) => {
+        const [[row]] = await conn.query(SQL_RINGKASAN);
+        const totalPemasukan = Number(row.pemasukan);
+        const totalPengeluaran = Number(row.pengeluaran);
+        return {
+            totalPemasukan,
+            totalPengeluaran,
+            saldo: totalPemasukan - totalPengeluaran,
+        };
+    },
+
+    getBatasPencairan: async (conn = db) => {
+        const [[row]] = await conn.query(SQL_PENCAIRAN_BULAN_INI);
+        const terpakaiBulanIni = Number(row.total);
+        return {
+            maksimumPerBulan: BATAS_PENCAIRAN_PER_BULAN,
+            terpakaiBulanIni,
+            sisa: Math.max(0, BATAS_PENCAIRAN_PER_BULAN - terpakaiBulanIni),
+        };
+    },
+
+    // Isi Saldo (pemasukan): saldo hanya bertambah, tidak perlu dikunci
+    create: (data) => insert(db, data),
+
+    // Pencairan (pengeluaran): saldo dicek dulu. Dikunci supaya dua pencairan
+    // yang masuk bersamaan tidak sama-sama lolos dari saldo yang sama.
+    createPencairan: async (data) => {
+        const conn = await db.getConnection();
+        try {
+            const [[kunci]] = await conn.query("SELECT GET_LOCK(?, 5) AS ok", [
+                NAMA_LOCK,
+            ]);
+            if (kunci.ok !== 1) {
+                throw galat(
+                    "Server sedang sibuk, coba lagi sebentar lagi",
+                    503,
+                );
+            }
+
+            const { saldo } = await Keuangan.getSummary(conn);
+            if (data.nominal > saldo) {
+                throw galat("Saldo tidak mencukupi untuk pencairan ini", 400);
+            }
+
+            const batas = await Keuangan.getBatasPencairan(conn);
+            if (data.nominal > batas.sisa) {
+                throw galat(
+                    `Batas pencairan bulan ini terlampaui. Sisa batas: Rp ${batas.sisa.toLocaleString("id-ID")}`,
+                    400,
+                );
+            }
+
+            return await insert(conn, data);
+        } finally {
+            await conn
+                .query("SELECT RELEASE_LOCK(?)", [NAMA_LOCK])
+                .catch(() => {});
+            conn.release();
+        }
+    },
+};
+
+module.exports = Keuangan;
+
+
+
+================================================
+FILE: models/koleksi.model.js
+================================================
+const db = require("../config/db");
+
+const Koleksi = {
+    getAll: async () => {
+        const [rows] = await db.query(
+            "SELECT * FROM koleksi ORDER BY tanggal_update DESC",
+        );
+        return rows;
+    },
+    // BARU: dipakai untuk mengetahui gambar lama saat ubah/hapus
+    getById: async (id) => {
+        const [rows] = await db.query("SELECT * FROM koleksi WHERE id = ?", [
+            id,
+        ]);
+        return rows[0] || null;
+    },
+    create: async (data) => {
+        const [result] = await db.query(
+            "INSERT INTO koleksi (nama, jenis, token, deskripsi, gambar) VALUES (?, ?, ?, ?, ?)",
+            [data.nama, data.jenis, data.token, data.deskripsi, data.gambar],
+        );
+        return result.insertId;
+    },
+    update: async (id, data) => {
+        await db.query(
+            "UPDATE koleksi SET nama = ?, jenis = ?, token = ?, deskripsi = ?, gambar = ? WHERE id = ?",
+            [
+                data.nama,
+                data.jenis,
+                data.token,
+                data.deskripsi,
+                data.gambar,
+                id,
+            ],
+        );
+    },
+    delete: async (id) => {
+        await db.query("DELETE FROM koleksi WHERE id = ?", [id]);
+    },
+};
+
+module.exports = Koleksi;
+
+
+
+================================================
+FILE: models/pengunjung.model.js
+================================================
+const db = require("../config/db");
+
+const Pengunjung = {
+    getAll: async () => {
+        const [rows] = await db.query(
+            "SELECT * FROM pengunjung ORDER BY tanggal_dibuat DESC",
+        );
+        return rows;
+    },
+    create: async (data) => {
+        const [result] = await db.query(
+            "INSERT INTO pengunjung (nama, no_telp, email, alamat, status, avatar) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                data.nama,
+                data.no_telp,
+                data.email,
+                data.alamat,
+                data.status || "Online",
+                data.avatar || "",
+            ],
+        );
+        return result.insertId;
+    },
+    update: async (id, data) => {
+        await db.query(
+            "UPDATE pengunjung SET nama = ?, no_telp = ?, email = ?, alamat = ?, status = ? WHERE id = ?",
+            [data.nama, data.no_telp, data.email, data.alamat, data.status, id],
+        );
+    },
+    delete: async (id) => {
+        await db.query("DELETE FROM pengunjung WHERE id = ?", [id]);
+    },
+};
+
+module.exports = Pengunjung;
+
+
+
+================================================
+FILE: models/user.model.js
+================================================
+const db = require("../config/db");
+const bcrypt = require("bcrypt"); // Tambahkan bcrypt untuk hashing
+
+// Fungsi Inisialisasi Admin (Wajib Ada)
+exports.initAdmin = async () => {
+    try {
+        const adminEmail = process.env.ADMIN_EMAIL || "admin@tiket.com";
+        const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+
+        const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
+            adminEmail,
+        ]);
+
+        if (rows.length === 0) {
+            const hashed = await bcrypt.hash(adminPassword, 10);
+            await db.query(
+                "INSERT INTO users (email, password, role) VALUES (?, ?, ?)",
+                [adminEmail, hashed, "admin"],
+            );
+            console.log(
+                `[SYSTEM] Akun admin default (${adminEmail}) berhasil dibuat!`,
+            );
+        }
+    } catch (error) {
+        console.error("[SYSTEM] Gagal menginisialisasi admin:", error.message);
+    }
+};
+
+exports.findByEmail = async (email) => {
+    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [
+        email,
+    ]);
+    return rows[0] || null;
+};
+
+exports.findByEmailAndResetCode = async (email, code) => {
+    const [rows] = await db.query(
+        "SELECT * FROM users WHERE email = ? AND reset_token = ? AND reset_expires > NOW()",
+        [email, code],
+    );
+    return rows[0] || null;
+};
+
+exports.saveResetCode = (email, code) =>
+    db.query(
+        "UPDATE users SET reset_token = ?, reset_expires = DATE_ADD(NOW(), INTERVAL 10 MINUTE) WHERE email = ?",
+        [code, email],
+    );
+
+exports.updatePassword = (email, hashed) =>
+    db.query(
+        "UPDATE users SET password = ?, reset_token = NULL, reset_expires = NULL WHERE email = ?",
+        [hashed, email],
+    );
+
+exports.create = (email, hashed, role) =>
+    db.query("INSERT INTO users (email, password, role) VALUES (?, ?, ?)", [
+        email,
+        hashed,
+        role,
+    ]);
+
+
+
+================================================
+FILE: routes/auth.routes.js
+================================================
+const express = require("express");
+const authController = require("../controllers/auth.controller");
+const validate = require("../middleware/validate.middleware");
+const authSchema = require("../schemas/auth.schema");
+
+const router = express.Router();
+
+router.post("/login", validate(authSchema.loginSchema), authController.login);
+router.post(
+    "/forgot-password",
+    validate(authSchema.forgotSchema),
+    authController.forgotPassword,
+);
+router.post(
+    "/verify-reset-code",
+    validate(authSchema.verifyCodeSchema),
+    authController.verifyResetCode,
+);
+router.post(
+    "/reset-password",
+    validate(authSchema.resetSchema),
+    authController.resetPassword,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/dashboard.routes.js
+================================================
+const express = require("express");
+const dashboardController = require("../controllers/dashboard.controller");
+const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+const router = express.Router();
+
+// Tidak perlu validasi karena hanya mengambil data (GET)
+router.get(
+    "/",
+    authenticate,
+    requireAdmin,
+    dashboardController.getDashboardStats,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/feedback.routes.js
+================================================
+const express = require("express");
+const feedbackController = require("../controllers/feedback.controller");
+const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+
+// --- TAMBAHKAN 2 BARIS INI ---
+const validate = require("../middleware/validate.middleware");
+const { feedbackSchema } = require("../schemas/feedback.schema");
+
+const router = express.Router();
+
+// GET tidak perlu validasi
+router.get(
+    "/",
+    authenticate,
+    requireAdmin,
+    feedbackController.getSemuaFeedback,
+);
+
+// --- PASANG VALIDATE DI ROUTE PUT (Karena balas feedback butuh input body) ---
+router.put(
+    "/:id/reply",
+    authenticate,
+    requireAdmin,
+    validate(feedbackSchema),
+    feedbackController.balasFeedback,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/keuangan.routes.js
+================================================
+const express = require("express");
+const keuanganController = require("../controllers/keuangan.controller");
+const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+
+// --- TAMBAHKAN 2 BARIS INI ---
+const validate = require("../middleware/validate.middleware");
+const { keuanganSchema } = require("../schemas/keuangan.schema");
+
+const router = express.Router();
+
+router.get(
+    "/",
+    authenticate,
+    requireAdmin,
+    keuanganController.getSemuaKeuangan,
+);
+
+// --- PASANG VALIDATE DI ROUTE POST ---
+router.post(
+    "/",
+    authenticate,
+    requireAdmin,
+    validate(keuanganSchema),
+    keuanganController.tambahKeuangan,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/koleksi.routes.js
+================================================
+const express = require("express");
+const koleksiController = require("../controllers/koleksi.controller");
+const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+
+const validate = require("../middleware/validate.middleware");
+const { koleksiSchema } = require("../schemas/koleksi.schema");
+
+// --- BARU: middleware upload gambar (multer) ---
+const { uploadGambar } = require("../middleware/upload.middleware");
+
+const router = express.Router();
+
+// GET tidak perlu validasi karena hanya mengambil data
+router.get("/", authenticate, requireAdmin, koleksiController.getSemuaKoleksi);
+
+// POST dan PUT sekarang menerima multipart/form-data (ada file gambar).
+// Urutan penting: cek login dulu -> baca file (multer) -> validasi field teks.
+router.post(
+    "/",
+    authenticate,
+    requireAdmin,
+    uploadGambar,
+    validate(koleksiSchema),
+    koleksiController.tambahKoleksi,
+);
+router.put(
+    "/:id",
+    authenticate,
+    requireAdmin,
+    uploadGambar,
+    validate(koleksiSchema),
+    koleksiController.ubahKoleksi,
+);
+
+// DELETE tidak perlu validasi karena tidak mengirim body data
+router.delete(
+    "/:id",
+    authenticate,
+    requireAdmin,
+    koleksiController.hapusKoleksi,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/pengunjung.routes.js
+================================================
+const express = require("express");
+const pengunjungController = require("../controllers/pengunjung.controller");
+const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
+
+// --- TAMBAHKAN 2 BARIS INI ---
+const validate = require("../middleware/validate.middleware");
+const { pengunjungSchema } = require("../schemas/pengunjung.schema");
+
+const router = express.Router();
+
+// GET dan DELETE tidak perlu validasi body
+router.get(
+    "/",
+    authenticate,
+    requireAdmin,
+    pengunjungController.getSemuaPengunjung,
+);
+router.delete(
+    "/:id",
+    authenticate,
+    requireAdmin,
+    pengunjungController.hapusPengunjung,
+);
+
+// --- PASANG VALIDATE DI ROUTE POST DAN PUT ---
+router.post(
+    "/",
+    authenticate,
+    requireAdmin,
+    validate(pengunjungSchema),
+    pengunjungController.tambahPengunjung,
+);
+router.put(
+    "/:id",
+    authenticate,
+    requireAdmin,
+    validate(pengunjungSchema),
+    pengunjungController.ubahPengunjung,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: schemas/auth.schema.js
+================================================
+const { z } = require("zod");
+
+const email = z
+    .string()
+    .trim()
+    .min(1, "Email wajib diisi")
+    .email("Format email tidak valid");
+const code = z.string().regex(/^\d{6}$/, "Kode harus 6 digit angka");
+
+exports.loginSchema = z.object({
+    email,
+    password: z.string().min(1, "Password wajib diisi"),
+});
+
+exports.forgotSchema = z.object({ email });
+
+exports.verifyCodeSchema = z.object({ email, code });
+
+exports.resetSchema = z
+    .object({
+        email,
+        code,
+        newPassword: z
+            .string()
+            .min(8, "Sandi minimal 8 karakter")
+            .regex(/[A-Za-z]/, "Sandi harus mengandung huruf")
+            .regex(/\d/, "Sandi harus mengandung angka"),
+        confirmPassword: z.string().min(1, "Konfirmasi sandi wajib diisi"),
+    })
+    .refine((d) => d.newPassword === d.confirmPassword, {
+        message: "Sandi dan konfirmasi sandi tidak cocok",
+        path: ["confirmPassword"],
+    });
+
+
+
+================================================
+FILE: schemas/feedback.schema.js
+================================================
+const { z } = require("zod");
+exports.replySchema = z.object({
+    replyText: z.string().trim().min(1, "Balasan tidak boleh kosong"),
+});
+
+
+
+================================================
+FILE: schemas/keuangan.schema.js
+================================================
+const { z } = require("zod");
+
+const hanyaAngka = (v) => v.replace(/\D/g, "");
+
+const deskripsi = z
+    .string()
+    .trim()
+    .max(255, "Deskripsi terlalu panjang")
+    .optional();
+
+// Isi Saldo -> dicatat sebagai Pemasukan.
+// Nominal TIDAK dikirim klien: backend menghitungnya dari harga tiket.
+const pemasukanSchema = z.object({
+    tipe: z.literal("pemasukan"),
+    nama: z
+        .string()
+        .trim()
+        .min(3, "Nama minimal 3 karakter")
+        .max(100, "Nama maksimal 100 karakter"),
+    noTelepon: z
+        .string()
+        .trim()
+        .optional()
+        .refine(
+            (v) => !v || /^08\d{8,11}$/.test(hanyaAngka(v)),
+            "Nomor telepon diawali 08 (10-13 digit)",
+        )
+        .transform((v) => (v ? hanyaAngka(v) : undefined)),
+    jumlahTiket: z
+        .number({ error: "Jumlah tiket harus berupa angka" })
+        .int("Jumlah tiket harus bilangan bulat")
+        .min(1, "Jumlah tiket minimal 1"),
+    jenisTiket: z.enum(["Mandiri", "Guide"], {
+        error: "Jenis tiket tidak valid",
+    }),
+    deskripsi,
+});
+
+// Pencairan -> dicatat sebagai Pengeluaran
+const pengeluaranSchema = z.object({
+    tipe: z.literal("pengeluaran"),
+    nama: z
+        .string()
+        .trim()
+        .min(1, "Nama wajib diisi")
+        .max(100, "Nama maksimal 100 karakter"),
+    jumlah: z
+        .number({ error: "Jumlah harus berupa angka" })
+        .int("Jumlah harus bilangan bulat")
+        .positive("Jumlah harus lebih dari 0"),
+    jenisPencairan: z.enum(["Bank", "E-Wallet"], {
+        error: "Jenis pencairan tidak valid",
+    }),
+    noRekening: z
+        .string()
+        .trim()
+        .refine(
+            (v) => /^[\d\s-]+$/.test(v) && /^\d{8,16}$/.test(hanyaAngka(v)),
+            "Nomor rekening harus 8-16 digit angka",
+        )
+        .transform(hanyaAngka),
+    deskripsi,
+});
+
+exports.keuanganSchema = z.discriminatedUnion(
+    "tipe",
+    [pemasukanSchema, pengeluaranSchema],
+    { error: "Tipe transaksi harus pemasukan atau pengeluaran" },
+);
+
+
+
+================================================
+FILE: schemas/koleksi.schema.js
+================================================
+const { z } = require("zod");
+exports.koleksiSchema = z.object({
+    nama: z.string().trim().min(1, "Nama wajib diisi"),
+    jenis: z.string().trim().min(1, "Jenis wajib diisi"),
+    token: z.string().trim().min(1, "Token wajib diisi"),
+    deskripsi: z.string().trim().min(1, "Deskripsi wajib diisi"),
+    gambar: z.string().optional(),
+});
+
+
+
+================================================
+FILE: schemas/pengunjung.schema.js
+================================================
+const { z } = require("zod");
+exports.pengunjungSchema = z.object({
+    name: z.string().trim().min(1, "Nama wajib diisi"),
+    phone: z.string().trim().min(1, "No telepon wajib diisi"),
+    email: z.string().trim().email("Format email salah"),
+    address: z.string().trim().min(1, "Alamat wajib diisi"),
+    status: z.enum(["Online", "Offline"]).optional(),
+});
+
+

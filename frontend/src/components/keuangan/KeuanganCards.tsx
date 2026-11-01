@@ -1,56 +1,56 @@
 "use client";
-import { Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { CheckSquare, ExternalLink } from "lucide-react";
 
 interface Props {
-    saldo: string;
-    pemasukan: string;
-    pengeluaran: string;
+    pemasukan: number;
+    pengeluaran: number;
 }
 
-export default function KeuanganCards({
-    saldo,
-    pemasukan,
-    pengeluaran,
-}: Props) {
+// Contoh: Rp. 580.000
+const rp = (angka: number) => `Rp. ${angka.toLocaleString("id-ID")}`;
+
+function Kartu({
+    judul,
+    nilai,
+    ikon,
+}: {
+    judul: string;
+    nilai: number;
+    ikon: React.ReactNode;
+}) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-[#e6f3eb] flex items-center justify-center text-[#4a8a5b]">
-                    <Wallet className="w-7 h-7" />
-                </div>
+        <div className="bg-[#222222] rounded-[24px] p-6 flex flex-col justify-between min-h-[160px] shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">
-                        Total Saldo
+                    <h3 className="text-white font-bold text-[18px]">{judul}</h3>
+                    <p className="text-[#a3a3a3] text-[13px] mt-1 font-medium">
+                        Total Keseluruhan
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">{saldo}</p>
                 </div>
+                <div className="p-2 bg-white/10 rounded-xl">{ikon}</div>
             </div>
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500">
-                    <TrendingUp className="w-7 h-7" />
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">
-                        Total Pemasukan
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                        {pemasukan}
-                    </p>
-                </div>
-            </div>
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-red-50 flex items-center justify-center text-red-500">
-                    <TrendingDown className="w-7 h-7" />
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-gray-500 mb-1">
-                        Total Pengeluaran
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                        {pengeluaran}
-                    </p>
-                </div>
-            </div>
+            <p className="text-white font-bold text-[24px] mt-6 tracking-tight">
+                {rp(nilai)}
+            </p>
         </div>
+    );
+}
+
+// Dua kartu ini menjadi anak langsung dari grid di page.tsx.
+// Isinya total keseluruhan dari database (hanya transaksi sukses), tidak ikut filter.
+export default function KeuanganCards({ pemasukan, pengeluaran }: Props) {
+    return (
+        <>
+            <Kartu
+                judul="Pemasukan"
+                nilai={pemasukan}
+                ikon={<CheckSquare className="text-[#00ff1a] w-5 h-5 stroke-[2]" />}
+            />
+            <Kartu
+                judul="Pengeluaran"
+                nilai={pengeluaran}
+                ikon={<ExternalLink className="text-[#ff4046] w-5 h-5 stroke-[2]" />}
+            />
+        </>
     );
 }

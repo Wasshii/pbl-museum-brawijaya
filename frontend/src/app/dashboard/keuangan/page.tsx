@@ -1,78 +1,193 @@
 "use client";
-import { Plus } from "lucide-react";
-import SearchInput from "@/components/ui/SearchInput";
+import { Suspense, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { Upload, Download, Search, X } from "lucide-react";
 import KeuanganCards from "@/components/keuangan/KeuanganCards";
 import KeuanganTable from "@/components/keuangan/KeuanganTable";
-import KeuanganFormModal from "@/components/keuangan/KeuanganFormModal";
-import { useKeuangan } from "@/hooks/useKeuangan";
+import RentangTanggalPicker from "@/components/keuangan/RentangTanggalPicker";
+import KeuanganIsiSaldoModal from "@/components/keuangan/KeuanganIsiSaldoModal";
+import KeuanganPencairanModal from "@/components/keuangan/KeuanganPencairanModal";
+import KeuanganDetailModal from "@/components/keuangan/KeuanganDetailModal";
+import { useKeuangan, type TabKeuangan } from "@/hooks/useKeuangan";
 
-export default function KeuanganPage() {
+const TOMBOL_AKSI =
+    "flex flex-col items-center justify-center bg-[#222222] hover:bg-black transition-all hover:scale-[1.02] w-full max-w-[120px] h-[110px] rounded-[20px] text-white cursor-pointer border-0 shadow-sm";
+
+function Tab({
+    label,
+    jumlah,
+    aktif,
+    onClick,
+}: {
+    label: string;
+    jumlah: number;
+    aktif: boolean;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={`pb-2 cursor-pointer border-b-[3px] transition-colors border-0 bg-transparent p-0 ${
+                aktif
+                    ? "border-black text-black"
+                    : "border-transparent text-[#888888] hover:text-black"
+            }`}>
+            <span className="text-[20px] font-bold">{label}</span>
+            <span className="ml-2 text-xs py-0.5 px-2 bg-gray-100 text-gray-700 rounded-full font-bold">
+                {jumlah}
+            </span>
+        </button>
+    );
+}
+
+function KeuanganContent() {
     const {
-        transaksi,
+        daftar,
+        jumlahMasuk,
+        jumlahKeluar,
+        summary,
+        tarif,
+        batas,
         loading,
+        submitting,
+        tab,
+        setTab,
+        rentang,
+        setRentang,
         searchQuery,
         setSearchQuery,
-        modalFormOpen,
-        setModalFormOpen,
-        formData,
-        setFormData,
-        totalSaldo,
-        totalPemasukan,
-        totalPengeluaran,
-        handleAdd,
-        handleSubmit,
-        formatRupiah,
+        modalAktif,
+        setModalAktif,
+        detail,
+        setDetail,
+        handleIsiSaldo,
+        handlePencairan,
     } = useKeuangan();
 
+    // Buka tab langsung lewat alamat: /dashboard/keuangan?tab=keluar
+    const tabQuery = useSearchParams().get("tab");
+    useEffect(() => {
+        if (tabQuery === "masuk" || tabQuery === "keluar") {
+            setTab(tabQuery as TabKeuangan);
+        }
+    }, [tabQuery, setTab]);
+
     return (
-        <div className="animate-in fade-in duration-300">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                <h1 className="text-[24px] md:text-[28px] font-bold text-gray-900 tracking-tight m-0">
-                    Keuangan
-                </h1>
+        <div className="w-full flex flex-col font-sans animate-in fade-in duration-500 pb-10">
+            <h2 className="text-[26px] font-bold text-black mb-8">Keuangan</h2>
 
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                    {/* Menggunakan format onChange yang sudah benar agar tidak error string */}
-                    <SearchInput
-                        value={searchQuery}
-                        onChange={(val) => setSearchQuery(val)}
-                        placeholder="Cari deskripsi..."
-                    />
+            {/* Kartu atas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <KeuanganCards
+                    pemasukan={summary.totalPemasukan}
+                    pengeluaran={summary.totalPengeluaran}
+                />
 
+                <div className="bg-white rounded-[24px] p-6 flex items-center justify-center gap-5 shadow-sm border border-gray-100">
                     <button
-                        onClick={handleAdd}
-                        className="w-full md:w-auto flex items-center justify-center gap-2 bg-[#6C9E78] text-white px-5 py-2.5 rounded-xl hover:bg-[#5a8664] transition-colors shadow-sm font-medium border-0 cursor-pointer">
-                        <Plus className="w-5 h-5" />
-                        <span>Tambah Transaksi</span>
+                        onClick={() => setModalAktif("pencairan")}
+                        className={TOMBOL_AKSI}>
+                        <Upload className="w-6 h-6 mb-2" />
+                        <span className="font-semibold text-[13px]">
+                            Pencairan
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setModalAktif("isiSaldo")}
+                        className={TOMBOL_AKSI}>
+                        <Download className="w-6 h-6 mb-2" />
+                        <span className="font-semibold text-[13px]">
+                            Isi Saldo
+                        </span>
                     </button>
                 </div>
             </div>
 
-            <KeuanganCards
-                saldo={formatRupiah(totalSaldo)}
-                pemasukan={formatRupiah(totalPemasukan)}
-                pengeluaran={formatRupiah(totalPengeluaran)}
-            />
+            {/* Tab dan filter */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+                <div className="flex items-center gap-8">
+                    <Tab
+                        label="Uang Masuk"
+                        jumlah={jumlahMasuk}
+                        aktif={tab === "masuk"}
+                        onClick={() => setTab("masuk")}
+                    />
+                    <Tab
+                        label="Uang Keluar"
+                        jumlah={jumlahKeluar}
+                        aktif={tab === "keluar"}
+                        onClick={() => setTab("keluar")}
+                    />
+                </div>
 
-            {loading && transaksi.length === 0 ? (
+                <div className="flex items-center gap-3 flex-wrap w-full lg:w-auto">
+                    <RentangTanggalPicker
+                        value={rentang}
+                        onChange={setRentang}
+                    />
+
+                    <div className="flex items-center gap-3 bg-[#222222] text-white px-5 py-3 rounded-full flex-1 sm:w-[260px] shadow-sm">
+                        <Search className="w-4 h-4 text-white/80 shrink-0" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Cari Id Trx..."
+                            className="bg-transparent border-none outline-none text-[13px] font-semibold text-white w-full placeholder:text-white/60"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery("")}
+                                className="text-white/60 hover:text-white cursor-pointer bg-transparent border-none p-0 shrink-0">
+                                <X className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {loading && jumlahMasuk + jumlahKeluar === 0 ? (
                 <div className="flex justify-center items-center h-48">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6C9E78] border-t-transparent" />
                 </div>
             ) : (
                 <KeuanganTable
-                    transaksi={transaksi}
-                    formatRupiah={formatRupiah}
+                    tab={tab}
+                    transaksi={daftar}
+                    onDetail={setDetail}
                 />
             )}
 
-            <KeuanganFormModal
-                isOpen={modalFormOpen}
-                onClose={() => setModalFormOpen(false)}
-                onSubmit={handleSubmit}
-                formData={formData}
-                setFormData={setFormData}
-                loading={loading}
+            <KeuanganIsiSaldoModal
+                isOpen={modalAktif === "isiSaldo"}
+                onClose={() => setModalAktif(null)}
+                onSubmit={handleIsiSaldo}
+                submitting={submitting}
+                tarif={tarif}
+            />
+
+            <KeuanganPencairanModal
+                isOpen={modalAktif === "pencairan"}
+                onClose={() => setModalAktif(null)}
+                onSubmit={handlePencairan}
+                submitting={submitting}
+                saldo={summary.saldo}
+                batas={batas}
+            />
+
+            <KeuanganDetailModal
+                data={detail}
+                onClose={() => setDetail(null)}
             />
         </div>
+    );
+}
+
+// useSearchParams di Next.js wajib dibungkus Suspense
+export default function KeuanganPage() {
+    return (
+        <Suspense>
+            <KeuanganContent />
+        </Suspense>
     );
 }

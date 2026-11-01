@@ -1,18 +1,24 @@
 import { z } from "zod";
 import { parseNominal } from "@/lib/format";
 
+// Pilihan dropdown. Ubah di sini kalau pilihannya perlu diganti.
+export const JENIS_TIKET = ["Mandiri", "Guide"] as const;
+export const JENIS_PENCAIRAN = ["Bank", "E-Wallet"] as const;
+
 // Dibuat sebagai fungsi karena batas nominal bergantung pada saldo saat ini
-export const pencairanSchema = (saldo: number) =>
+// dan sisa batas pencairan bulan ini
+export const pencairanSchema = (saldo: number, sisaBatas: number) =>
     z.object({
         nominal: z
             .string()
             .min(1, "Nominal wajib diisi")
             .refine((v) => parseNominal(v) > 0, "Nominal harus lebih dari 0")
+            .refine((v) => parseNominal(v) <= saldo, "Saldo tidak mencukupi")
             .refine(
-                (v) => parseNominal(v) <= saldo,
-                "Saldo pemasukan tidak mencukupi",
+                (v) => parseNominal(v) <= sisaBatas,
+                "Melebihi sisa batas pencairan bulan ini",
             ),
-        jenisPencairan: z.enum(["Bank", "E-Wallet"]),
+        jenisPencairan: z.enum(JENIS_PENCAIRAN),
         noRekening: z
             .string()
             .refine(
@@ -21,6 +27,7 @@ export const pencairanSchema = (saldo: number) =>
             ),
     });
 
+// Nominal tidak ada di sini: dihitung otomatis dari jumlah dan jenis tiket
 export const isiSaldoSchema = z.object({
     nama: z.string().trim().min(3, "Nama minimal 3 karakter"),
     tiket: z
@@ -29,14 +36,11 @@ export const isiSaldoSchema = z.object({
             (v) => /^\d+$/.test(v) && parseInt(v, 10) >= 1,
             "Jumlah tiket minimal 1",
         ),
-    jenis: z.enum(["Mandiri", "Guide"]),
-    nominal: z
-        .string()
-        .refine((v) => parseNominal(v) > 0, "Nominal harus lebih dari 0"),
+    jenis: z.enum(JENIS_TIKET),
     noTlp: z
         .string()
         .refine(
-            (v) => v === "" || /^08\d{8,11}$/.test(v.replace(/\D/g, "")),
-            "Nomor telepon diawali 08 (10-13 digit)",
+            (v) => /^08\d{8,11}$/.test(v.replace(/\D/g, "")),
+            "Nomor telepon wajib diisi (diawali 08, 10-13 digit)",
         ),
 });
