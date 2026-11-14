@@ -1,17 +1,20 @@
 "use client";
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Upload, Download, Search, X } from "lucide-react";
+import { Upload, Download, Search, X, Clock, Calendar } from "lucide-react";
 import KeuanganCards from "@/components/keuangan/KeuanganCards";
 import KeuanganTable from "@/components/keuangan/KeuanganTable";
 import RentangTanggalPicker from "@/components/keuangan/RentangTanggalPicker";
 import KeuanganIsiSaldoModal from "@/components/keuangan/KeuanganIsiSaldoModal";
 import KeuanganPencairanModal from "@/components/keuangan/KeuanganPencairanModal";
 import KeuanganDetailModal from "@/components/keuangan/KeuanganDetailModal";
-import { useKeuangan, type TabKeuangan } from "@/hooks/useKeuangan";
-
-const TOMBOL_AKSI =
-    "flex flex-col items-center justify-center bg-[#222222] hover:bg-black transition-all hover:scale-[1.02] w-full max-w-[120px] h-[110px] rounded-[20px] text-white cursor-pointer border-0 shadow-sm";
+import {
+    BARIS_PER_HALAMAN,
+    useKeuangan,
+    type PeriodeKeuangan,
+    type TabKeuangan,
+} from "@/hooks/useKeuangan";
+import { tanggalPanjang } from "@/lib/format";
 
 function Tab({
     label,
@@ -40,22 +43,73 @@ function Tab({
     );
 }
 
+const MENU_PERIODE: {
+    nilai: PeriodeKeuangan;
+    label: string;
+    ikon?: React.ReactNode;
+}[] = [
+    { nilai: "hari", label: "Hari Ini", ikon: <Clock className="w-3 h-3" /> },
+    {
+        nilai: "bulan",
+        label: "Bulan Ini",
+        ikon: <Calendar className="w-3 h-3" />,
+    },
+    { nilai: "semua", label: "Total Keseluruhan" },
+];
+
+// Tombol pilihan periode yang menyatu (segmented control)
+function MenuPeriode({
+    value,
+    onChange,
+}: {
+    value: PeriodeKeuangan;
+    onChange: (p: PeriodeKeuangan) => void;
+}) {
+    return (
+        <div className="inline-flex items-center bg-[#f0f0f2] p-1 rounded-xl border border-gray-200/80 shadow-xs">
+            {MENU_PERIODE.map((m) => (
+                <button
+                    key={m.nilai}
+                    type="button"
+                    onClick={() => onChange(m.nilai)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer border-0 ${
+                        value === m.nilai
+                            ? "bg-white text-black font-bold shadow-xs"
+                            : "bg-transparent text-gray-500 hover:text-black font-medium"
+                    }`}>
+                    {m.ikon}
+                    <span>{m.label}</span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
 function KeuanganContent() {
     const {
         daftar,
+        daftarHalaman,
+        adaData,
         jumlahMasuk,
         jumlahKeluar,
         summary,
+        ringkasanPeriode,
         tarif,
         batas,
+        penyedia,
         loading,
         submitting,
+        periode,
+        setPeriode,
         tab,
         setTab,
         rentang,
         setRentang,
         searchQuery,
         setSearchQuery,
+        halaman,
+        setHalaman,
+        totalHalaman,
         modalAktif,
         setModalAktif,
         detail,
@@ -72,39 +126,65 @@ function KeuanganContent() {
         }
     }, [tabQuery, setTab]);
 
+    const rentangAktif = Boolean(rentang.dari || rentang.sampai);
+    const sekarang = new Date();
+    const teksPeriode = rentangAktif
+        ? "RENTANG KUSTOM"
+        : periode === "hari"
+          ? `HARI INI (${tanggalPanjang(sekarang)})`
+          : periode === "bulan"
+            ? `BULAN INI (${sekarang.toLocaleDateString("id-ID", { month: "long", year: "numeric" })})`
+            : "TOTAL KESELURUHAN";
+
     return (
         <div className="w-full flex flex-col font-sans animate-in fade-in duration-500 pb-10">
-            <h2 className="text-[26px] font-bold text-black mb-8">Keuangan</h2>
+            {/* Header: judul, tombol aksi, menu periode */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-7">
+                <div>
+                    <h2 className="text-[26px] font-bold text-black tracking-tight">
+                        Keuangan Museum
+                    </h2>
+                    <p className="text-xs text-gray-500 font-medium mt-0.5">
+                        Monitoring arus kas pemasukan dan pengeluaran museum
+                        Brawijaya
+                    </p>
+                </div>
 
-            {/* Kartu atas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <KeuanganCards
-                    pemasukan={summary.totalPemasukan}
-                    pengeluaran={summary.totalPengeluaran}
-                />
+                <div className="flex flex-wrap items-center gap-6">
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setModalAktif("pencairan")}
+                            className="flex items-center gap-2 bg-white hover:bg-gray-50 text-black border border-gray-300 hover:border-black px-4 py-2 rounded-full font-bold text-xs transition-all shadow-xs cursor-pointer">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Pencairan</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setModalAktif("isiSaldo")}
+                            className="flex items-center gap-2 bg-[#222222] hover:bg-black text-white px-4 py-2 rounded-full font-bold text-xs transition-all shadow-xs cursor-pointer border-0">
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Isi Saldo</span>
+                        </button>
+                    </div>
 
-                <div className="bg-white rounded-[24px] p-6 flex items-center justify-center gap-5 shadow-sm border border-gray-100">
-                    <button
-                        onClick={() => setModalAktif("pencairan")}
-                        className={TOMBOL_AKSI}>
-                        <Upload className="w-6 h-6 mb-2" />
-                        <span className="font-semibold text-[13px]">
-                            Pencairan
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setModalAktif("isiSaldo")}
-                        className={TOMBOL_AKSI}>
-                        <Download className="w-6 h-6 mb-2" />
-                        <span className="font-semibold text-[13px]">
-                            Isi Saldo
-                        </span>
-                    </button>
+                    <div className="hidden sm:block h-6 w-px bg-gray-200" />
+
+                    <MenuPeriode value={periode} onChange={setPeriode} />
                 </div>
             </div>
 
+            {/* Kartu ringkasan (ikut menu periode) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                <KeuanganCards
+                    pemasukan={ringkasanPeriode.pemasukan}
+                    pengeluaran={ringkasanPeriode.pengeluaran}
+                    periode={periode}
+                />
+            </div>
+
             {/* Tab dan filter */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-3 gap-4">
                 <div className="flex items-center gap-8">
                     <Tab
                         label="Uang Masuk"
@@ -146,15 +226,32 @@ function KeuanganContent() {
                 </div>
             </div>
 
-            {loading && jumlahMasuk + jumlahKeluar === 0 ? (
+            {/* Indikator filter aktif */}
+            <div className="mb-4 flex items-center justify-between text-xs text-gray-500 font-medium px-1">
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                    <span>
+                        Filter Periode Aktif:{" "}
+                        <b className="text-black">{teksPeriode}</b>
+                    </span>
+                </div>
+                <span>Menampilkan {daftar.length} transaksi</span>
+            </div>
+
+            {loading && !adaData ? (
                 <div className="flex justify-center items-center h-48">
                     <div className="animate-spin rounded-full h-10 w-10 border-4 border-[#6C9E78] border-t-transparent" />
                 </div>
             ) : (
                 <KeuanganTable
                     tab={tab}
-                    transaksi={daftar}
+                    transaksi={daftarHalaman}
                     onDetail={setDetail}
+                    halaman={halaman}
+                    totalHalaman={totalHalaman}
+                    totalData={daftar.length}
+                    perHalaman={BARIS_PER_HALAMAN}
+                    onHalaman={setHalaman}
                 />
             )}
 
@@ -173,6 +270,7 @@ function KeuanganContent() {
                 submitting={submitting}
                 saldo={summary.saldo}
                 batas={batas}
+                penyedia={penyedia}
             />
 
             <KeuanganDetailModal

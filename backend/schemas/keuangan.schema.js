@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { cariPenyedia, pesanRekening } = require("../config/penyedia");
 
 const hanyaAngka = (v) => v.replace(/\D/g, "");
 
@@ -51,6 +52,7 @@ const pengeluaranSchema = z.object({
     jenisPencairan: z.enum(["Bank", "E-Wallet"], {
         error: "Jenis pencairan tidak valid",
     }),
+    penyedia: z.string().trim().min(1, "Pilih bank / e-wallet tujuan"),
     noRekening: z
         .string()
         .trim()
@@ -62,8 +64,31 @@ const pengeluaranSchema = z.object({
     deskripsi,
 });
 
-exports.keuanganSchema = z.discriminatedUnion(
-    "tipe",
-    [pemasukanSchema, pengeluaranSchema],
-    { error: "Tipe transaksi harus pemasukan atau pengeluaran" },
-);
+exports.keuanganSchema = z
+    .discriminatedUnion("tipe", [pemasukanSchema, pengeluaranSchema], {
+        error: "Tipe transaksi harus pemasukan atau pengeluaran",
+    })
+    // Aturan yang bergantung pada bank / e-wallet yang dipilih
+    // (panjang rekening bank, awalan 08 untuk e-wallet).
+    .superRefine((b, ctx) => {
+        if (b.tipe !== "pengeluaran") return;
+
+        const penyedia = cariPenyedia(b.jenisPencairan, b.penyedia);
+        if (!penyedia) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["penyedia"],
+                message: "Bank / e-wallet tujuan tidak valid",
+            });
+            return;
+        }
+
+        const pesan = pesanRekening(b.jenisPencairan, penyedia, b.noRekening);
+        if (pesan) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["noRekening"],
+                message: pesan,
+            });
+        }
+    });

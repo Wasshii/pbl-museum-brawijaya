@@ -79,6 +79,7 @@ Directory structure:
         │   └── ToastContext.tsx
         ├── hooks/
         │   ├── useAuthGuard.ts
+        │   ├── useCache.ts
         │   ├── useClickOutside.ts
         │   ├── useCountdown.ts
         │   ├── useDashboard.ts
@@ -92,6 +93,7 @@ Directory structure:
         ├── lib/
         │   ├── api.ts
         │   ├── auth.ts
+        │   ├── cache.ts
         │   ├── constants.ts
         │   ├── format.ts
         │   ├── image.ts
@@ -4329,6 +4331,107 @@ export function useAuthGuard() {
 
 
 ================================================
+FILE: src/hooks/useCache.ts
+================================================
+"use client";
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from "react";
+import { type CacheKey, getCache, setCache } from "@/lib/cache";
+
+interface UseCacheOptions {
+    // Dipanggil bila pengambilan data gagal (mis. untuk menampilkan toast)
+    onError?: (error: unknown) => void;
+}
+
+// Mengambil data dengan cache di localStorage (berlaku 5 menit).
+// - Ada cache yang masih berlaku  -> langsung tampil, tanpa spinner dan tanpa request.
+// - Belum ada / sudah kedaluwarsa -> ambil dari API, lalu simpan ke cache.
+export function useCache<T>(
+    key: CacheKey,
+    fetcher: () => Promise<T>,
+    { onError }: UseCacheOptions = {},
+) {
+    const [data, setData] = useState<T | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const dataRef = useRef<T | null>(null);
+    const mountedRef = useRef(false);
+    const fetcherRef = useRef(fetcher);
+    const onErrorRef = useRef(onError);
+
+    // Simpan fetcher & onError terbaru supaya refetch tidak ikut berubah tiap render
+    useEffect(() => {
+        fetcherRef.current = fetcher;
+        onErrorRef.current = onError;
+    });
+
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
+
+    // Ambil ulang dari API, lalu perbarui state dan cache
+    const refetch = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await fetcherRef.current();
+            setCache(key, result); // tetap diisi walau halaman sudah ditinggalkan
+            if (mountedRef.current) {
+                dataRef.current = result;
+                setData(result);
+            }
+        } catch (error) {
+            if (!mountedRef.current) return;
+            if (onErrorRef.current) onErrorRef.current(error);
+            else console.error(`Gagal memuat data "${key}":`, error);
+        } finally {
+            if (mountedRef.current) setLoading(false);
+        }
+    }, [key]);
+
+    // Ubah data lokal (dan cache) tanpa memanggil API.
+    // Bila belum ada data untuk diubah, ambil ulang dari API.
+    const update = useCallback(
+        (updater: (prev: T) => T) => {
+            if (dataRef.current === null) {
+                void refetch();
+                return;
+            }
+            const next = updater(dataRef.current);
+            dataRef.current = next;
+            setData(next);
+            setCache(key, next);
+        },
+        [key, refetch],
+    );
+
+    // Dibaca setelah komponen terpasang (bukan di useState) supaya hasil render
+    // server dan browser sama. useLayoutEffect dipakai agar data dari cache sudah
+    // tampil sebelum browser menggambar layar, jadi spinner tidak sempat berkedip.
+    useLayoutEffect(() => {
+        const cached = getCache<T>(key);
+        if (cached !== null) {
+            dataRef.current = cached;
+            setData(cached);
+            setLoading(false);
+        } else {
+            void refetch();
+        }
+    }, [key, refetch]);
+
+    return { data, loading, refetch, update };
+}
+
+
+
+================================================
 FILE: src/hooks/useClickOutside.ts
 ================================================
 "use client";
@@ -4375,34 +4478,43 @@ export function useCountdown() {
 FILE: src/hooks/useDashboard.ts
 ================================================
 "use client";
-import { useState, useEffect } from "react";
 import { api } from "@/lib/api"; // Import API axios yang sudah ada tokennya
+import { CACHE_KEYS } from "@/lib/cache";
+import { useCache } from "@/hooks/useCache";
+
+interface DashboardStats {
+    totalUser: number;
+    totalKoleksi: number;
+    saldoKeuangan: number;
+    totalUlasan: number;
+}
+
+const STATS_KOSONG: DashboardStats = {
+    totalUser: 0,
+    totalKoleksi: 0,
+    saldoKeuangan: 0,
+    totalUlasan: 0,
+};
+
+const fetchStats = async (): Promise<DashboardStats> => {
+    const response = await api.get("/api/dashboard");
+    // Dilempar sebagai error supaya respons gagal tidak ikut tersimpan di cache
+    if (!response.data.success) {
+        throw new Error("Respons dashboard tidak berhasil");
+    }
+    return response.data.data;
+};
+
+const handleError = (error: unknown) => {
+    console.error("Gagal mengambil data dashboard:", error);
+};
 
 export function useDashboard() {
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({
-        totalUser: 0,
-        totalKoleksi: 0,
-        saldoKeuangan: 0,
-        totalUlasan: 0,
-    });
-
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const response = await api.get("/api/dashboard");
-                if (response.data.success) {
-                    setStats(response.data.data);
-                }
-            } catch (error) {
-                console.error("Gagal mengambil data dashboard:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchStats();
-    }, []);
+    const { data, loading } = useCache<DashboardStats>(
+        CACHE_KEYS.dashboard,
+        fetchStats,
+        { onError: handleError },
+    );
 
     const formatRupiah = (angka: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -4412,7 +4524,7 @@ export function useDashboard() {
         }).format(angka);
     };
 
-    return { stats, loading, formatRupiah };
+    return { stats: data ?? STATS_KOSONG, loading, formatRupiah };
 }
 
 
@@ -4421,9 +4533,11 @@ export function useDashboard() {
 FILE: src/hooks/useFeedback.ts
 ================================================
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
+import { CACHE_KEYS } from "@/lib/cache";
 import * as feedbackService from "@/services/feedback.service";
 import type { FeedbackData } from "@/types/feedback";
 
@@ -4438,11 +4552,33 @@ export const STATUS_FILTERS = [
 ] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
+const DAFTAR_KOSONG: FeedbackData[] = [];
+
 export function useFeedback() {
     const { notify } = useToast();
 
-    const [feedbacks, setFeedbacks] = useState<FeedbackData[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Data feedback: dari cache (5 menit) bila ada, kalau tidak dari API
+    const {
+        data,
+        loading,
+        refetch: fetchFeedbacks,
+    } = useCache<FeedbackData[]>(
+        CACHE_KEYS.feedback,
+        feedbackService.getFeedbacks,
+        {
+            onError: (error) =>
+                notify({
+                    type: "error",
+                    title: "Gagal",
+                    message: getErrorMessage(
+                        error,
+                        "Gagal memuat data feedback",
+                    ),
+                }),
+        },
+    );
+    const feedbacks = data ?? DAFTAR_KOSONG;
+
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("Semua");
@@ -4451,27 +4587,6 @@ export function useFeedback() {
     const [selectedFeedback, setSelectedFeedback] =
         useState<FeedbackData | null>(null);
     const [replyText, setReplyText] = useState("");
-
-    const fetchFeedbacks = async () => {
-        setLoading(true);
-        try {
-            const data = await feedbackService.getFeedbacks();
-            setFeedbacks(data);
-        } catch (error) {
-            notify({
-                type: "error",
-                title: "Gagal",
-                message: getErrorMessage(error, "Gagal memuat data feedback"),
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchFeedbacks();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Status diturunkan dari kolom balasan_admin (backend mengirimnya sebagai `balasan`)
     const filteredFeedbacks = useMemo(() => {
@@ -4520,7 +4635,7 @@ export function useFeedback() {
                 message: `Balasan untuk ulasan dari ${namaUser} telah berhasil dikirim.`,
             });
             handleCloseModal();
-            fetchFeedbacks(); // ambil ulang dari database agar status ikut terbarui
+            fetchFeedbacks(); // ambil ulang dari database, cache ikut diperbarui
         } catch (error) {
             notify({
                 type: "error",
@@ -4560,14 +4675,17 @@ export function useFeedback() {
 FILE: src/hooks/useKeuangan.ts
 ================================================
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
+import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import { formatRupiah } from "@/lib/format";
 import * as keuanganService from "@/services/keuangan.service";
 import type {
     BatasPencairan,
     IsiSaldoInput,
+    KeuanganResponse,
     KeuanganSummary,
     PencairanInput,
     Tarif,
@@ -4586,6 +4704,7 @@ export interface RentangTanggal {
     sampai: string;
 }
 
+const TRANSAKSI_KOSONG: TransaksiData[] = [];
 const SUMMARY_KOSONG: KeuanganSummary = {
     totalPemasukan: 0,
     totalPengeluaran: 0,
@@ -4601,11 +4720,32 @@ const BATAS_KOSONG: BatasPencairan = {
 export function useKeuangan() {
     const { notify } = useToast();
 
-    const [transaksi, setTransaksi] = useState<TransaksiData[]>([]);
-    const [summary, setSummary] = useState<KeuanganSummary>(SUMMARY_KOSONG);
-    const [tarif, setTarif] = useState<Tarif>(TARIF_KOSONG);
-    const [batas, setBatas] = useState<BatasPencairan>(BATAS_KOSONG);
-    const [loading, setLoading] = useState(true);
+    // Satu paket data dari GET /api/keuangan (transaksi, ringkasan, tarif, batas):
+    // dari cache (5 menit) bila ada, kalau tidak dari API
+    const {
+        data: respons,
+        loading,
+        refetch: fetchKeuangan,
+    } = useCache<KeuanganResponse>(
+        CACHE_KEYS.keuangan,
+        keuanganService.getKeuangan,
+        {
+            onError: (error) =>
+                notify({
+                    type: "error",
+                    title: "Gagal",
+                    message: getErrorMessage(
+                        error,
+                        "Gagal memuat data keuangan",
+                    ),
+                }),
+        },
+    );
+    const transaksi = respons?.data ?? TRANSAKSI_KOSONG;
+    const summary = respons?.summary ?? SUMMARY_KOSONG;
+    const tarif = respons?.tarif ?? TARIF_KOSONG;
+    const batas = respons?.batasPencairan ?? BATAS_KOSONG;
+
     const [submitting, setSubmitting] = useState(false);
 
     const [tab, setTab] = useState<TabKeuangan>("masuk");
@@ -4617,30 +4757,6 @@ export function useKeuangan() {
 
     const [modalAktif, setModalAktif] = useState<ModalKeuangan>(null);
     const [detail, setDetail] = useState<TransaksiData | null>(null);
-
-    const fetchKeuangan = async () => {
-        setLoading(true);
-        try {
-            const res = await keuanganService.getKeuangan();
-            setTransaksi(res.data);
-            setSummary(res.summary);
-            setTarif(res.tarif);
-            setBatas(res.batasPencairan);
-        } catch (error) {
-            notify({
-                type: "error",
-                title: "Gagal",
-                message: getErrorMessage(error, "Gagal memuat data keuangan"),
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchKeuangan();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Filter tanggal + cari Id Trx. Kartu di atas TIDAK ikut filter (total keseluruhan);
     // angka di tab dan isi tabel ikut filter. Tanggal dibandingkan sebagai teks
@@ -4692,7 +4808,8 @@ export function useKeuangan() {
             }
 
             setModalAktif(null);
-            await fetchKeuangan();
+            removeCache(CACHE_KEYS.dashboard); // saldo di dashboard ikut berubah
+            await fetchKeuangan(); // ambil ulang, cache keuangan ikut diperbarui
             return true;
         } catch (error) {
             notify({
@@ -5004,17 +5121,50 @@ export function useResetRequest() {
 FILE: src/hooks/useSejarah.ts
 ================================================
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
+import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import * as koleksiService from "@/services/koleksi.service";
 import type { Koleksi, KoleksiFormValues } from "@/types/koleksi";
+
+const DAFTAR_KOSONG: Koleksi[] = [];
 
 export function useSejarah() {
     const { notify } = useToast();
 
-    const [koleksi, setKoleksi] = useState<Koleksi[]>([]);
-    const [loading, setLoading] = useState(true);
+    // Data koleksi apa adanya dari API: dari cache (5 menit) bila ada, kalau tidak dari API
+    const {
+        data,
+        loading: fetching,
+        refetch: fetchKoleksi,
+    } = useCache<Koleksi[]>(CACHE_KEYS.koleksi, koleksiService.getKoleksi, {
+        onError: () =>
+            notify({
+                type: "error",
+                title: "Gagal",
+                message: "Gagal memuat data koleksi",
+            }),
+    });
+
+    // Format tanggal update agar rapi (dilakukan saat tampil, bukan sebelum
+    // disimpan ke cache, supaya cache tetap berisi data asli dari API)
+    const koleksi = useMemo(
+        () =>
+            (data ?? DAFTAR_KOSONG).map((item) => ({
+                ...item,
+                tanggal_update: new Date(
+                    item.tanggal_update,
+                ).toLocaleDateString("id-ID"),
+            })),
+        [data],
+    );
+
+    // `loading` tetap berlaku untuk pengambilan data maupun proses simpan/hapus
+    const [submitting, setSubmitting] = useState(false);
+    const loading = fetching || submitting;
+
     const [searchQuery, setSearchQuery] = useState("");
 
     const [modalFormOpen, setModalFormOpen] = useState(false);
@@ -5033,33 +5183,6 @@ export function useSejarah() {
         fileGambar: null,
         previewGambar: "",
     });
-
-    const fetchKoleksi = async () => {
-        setLoading(true);
-        try {
-            const data = await koleksiService.getKoleksi();
-            // Format tanggal update agar rapi
-            const formattedData = data.map((item) => ({
-                ...item,
-                tanggal_update: new Date(
-                    item.tanggal_update,
-                ).toLocaleDateString("id-ID"),
-            }));
-            setKoleksi(formattedData);
-        } catch (error) {
-            notify({
-                type: "error",
-                title: "Gagal",
-                message: "Gagal memuat data koleksi",
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchKoleksi();
-    }, []);
 
     // REVISI: Pencarian sekarang mencakup Nama ATAU Token
     const filteredKoleksi = koleksi.filter(
@@ -5110,7 +5233,7 @@ export function useSejarah() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setLoading(true);
+        setSubmitting(true);
         try {
             if (isEdit && selectedItem) {
                 await koleksiService.updateKoleksi({
@@ -5119,6 +5242,7 @@ export function useSejarah() {
                 });
             } else {
                 await koleksiService.createKoleksi(formData);
+                removeCache(CACHE_KEYS.dashboard); // jumlah koleksi di dashboard bertambah
             }
             notify({
                 type: "success",
@@ -5126,7 +5250,7 @@ export function useSejarah() {
                 message: `Data berhasil ${isEdit ? "diperbarui" : "ditambahkan"}`,
             });
             setModalFormOpen(false);
-            fetchKoleksi();
+            fetchKoleksi(); // ambil ulang, cache koleksi ikut diperbarui
         } catch (error) {
             // REVISI: tampilkan pesan asli dari backend (token kembar, ukuran gambar, dll)
             notify({
@@ -5135,13 +5259,13 @@ export function useSejarah() {
                 message: getErrorMessage(error, "Gagal menyimpan data."),
             });
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
     const confirmDelete = async () => {
         if (!selectedItem) return;
-        setLoading(true);
+        setSubmitting(true);
         try {
             await koleksiService.deleteKoleksi(selectedItem.id);
             notify({
@@ -5150,15 +5274,16 @@ export function useSejarah() {
                 message: "Data berhasil dihapus.",
             });
             setModalDeleteOpen(false);
-            fetchKoleksi();
-        } catch (error) {
+            removeCache(CACHE_KEYS.dashboard); // jumlah koleksi di dashboard berkurang
+            fetchKoleksi(); // ambil ulang, cache koleksi ikut diperbarui
+        } catch {
             notify({
                 type: "error",
                 title: "Gagal",
                 message: "Gagal menghapus data.",
             });
         } finally {
-            setLoading(false);
+            setSubmitting(false);
         }
     };
 
@@ -5193,30 +5318,27 @@ FILE: src/hooks/useUsers.ts
 ================================================
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
+import { useCache } from "@/hooks/useCache";
+import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import * as userService from "@/services/user.service";
 import type { User, UserFormValues } from "@/types/user";
 
+const DAFTAR_KOSONG: User[] = [];
+
 export function useUsers() {
     const { notify } = useToast();
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState("");
 
-    // Data dibaca setelah komponen tampil (bukan di dalam useState) supaya
-    // hasil render di server dan di browser sama, tidak memicu hydration mismatch.
-    useEffect(() => {
-        let active = true;
-        userService.getUsers().then((data) => {
-            if (!active) return;
-            setUsers(data);
-            setLoading(false);
-        });
-        return () => {
-            active = false;
-        };
-    }, []);
+    // Data user: dari cache (5 menit) bila ada, kalau tidak dari API.
+    // `update` mengubah tampilan sekaligus cache tanpa memuat ulang dari API.
+    const { data, loading, update } = useCache<User[]>(
+        CACHE_KEYS.users,
+        userService.getUsers,
+    );
+    const users = data ?? DAFTAR_KOSONG;
+
+    const [search, setSearch] = useState("");
 
     // Filter pencarian: nama, email, atau nomor telepon
     const filteredUsers = useMemo(() => {
@@ -5231,7 +5353,8 @@ export function useUsers() {
 
     const addUser = async (values: UserFormValues) => {
         const created = await userService.createUser(values);
-        setUsers((prev) => [created, ...prev]);
+        update((prev) => [created, ...prev]);
+        removeCache(CACHE_KEYS.dashboard); // jumlah user di dashboard bertambah
         notify({
             type: "create",
             title: "User ditambahkan",
@@ -5241,7 +5364,7 @@ export function useUsers() {
 
     const editUser = async (user: User) => {
         await userService.updateUser(user);
-        setUsers((prev) => prev.map((u) => (u.id === user.id ? user : u)));
+        update((prev) => prev.map((u) => (u.id === user.id ? user : u)));
         notify({
             type: "edit",
             title: "Data diperbarui",
@@ -5251,7 +5374,8 @@ export function useUsers() {
 
     const removeUser = async (user: User) => {
         await userService.deleteUser(user.id);
-        setUsers((prev) => prev.filter((u) => u.id !== user.id));
+        update((prev) => prev.filter((u) => u.id !== user.id));
+        removeCache(CACHE_KEYS.dashboard); // jumlah user di dashboard berkurang
         notify({
             type: "delete",
             title: "User dihapus",
@@ -5309,6 +5433,7 @@ export function getErrorMessage(
 FILE: src/lib/auth.ts
 ================================================
 import { z } from "zod";
+import { clearAllCache } from "@/lib/cache";
 
 // ==========================================
 // 1. Session Management
@@ -5322,6 +5447,7 @@ export function getToken(): string | null {
 }
 
 export function saveSession(token: string, role?: string) {
+    clearAllCache(); // login baru selalu mulai dari cache kosong
     localStorage.setItem(TOKEN_KEY, token);
     if (role) localStorage.setItem(ROLE_KEY, role);
 }
@@ -5329,6 +5455,7 @@ export function saveSession(token: string, role?: string) {
 export function clearSession() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(ROLE_KEY);
+    clearAllCache(); // data admin tidak boleh tersisa setelah logout
 }
 
 // ==========================================
@@ -5374,6 +5501,91 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotInput = z.infer<typeof forgotSchema>;
 export type KodeInput = z.infer<typeof kodeSchema>;
 export type SandiBaruInput = z.infer<typeof sandiBaruSchema>;
+
+
+
+================================================
+FILE: src/lib/cache.ts
+================================================
+// Cache data di localStorage dengan masa berlaku (TTL).
+// Dipakai hook useCache supaya pindah menu tidak selalu memuat ulang dari API.
+
+const PREFIX = "cache:v1:"; // naikkan versi bila bentuk data yang disimpan berubah
+export const CACHE_TTL_MS = 5 * 60 * 1000; // 5 menit
+
+// Satu kunci untuk setiap halaman
+export const CACHE_KEYS = {
+    dashboard: "dashboard",
+    feedback: "feedback",
+    keuangan: "keuangan",
+    koleksi: "koleksi",
+    users: "users",
+} as const;
+export type CacheKey = (typeof CACHE_KEYS)[keyof typeof CACHE_KEYS];
+
+interface CacheEntry<T> {
+    data: T;
+    savedAt: number; // waktu disimpan (ms sejak epoch)
+}
+
+// Mengembalikan data cache, atau null bila belum ada / sudah kedaluwarsa / rusak.
+export function getCache<T>(key: CacheKey): T | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = localStorage.getItem(PREFIX + key);
+        if (!raw) return null;
+
+        const entry = JSON.parse(raw) as Partial<CacheEntry<T>> | null;
+        if (!entry || typeof entry.savedAt !== "number" || entry.data == null) {
+            localStorage.removeItem(PREFIX + key);
+            return null;
+        }
+
+        const umur = Date.now() - entry.savedAt;
+        if (umur < 0 || umur > CACHE_TTL_MS) {
+            localStorage.removeItem(PREFIX + key);
+            return null;
+        }
+        return entry.data;
+    } catch {
+        return null;
+    }
+}
+
+export function setCache<T>(key: CacheKey, data: T): void {
+    if (typeof window === "undefined") return;
+    try {
+        const entry: CacheEntry<T> = { data, savedAt: Date.now() };
+        localStorage.setItem(PREFIX + key, JSON.stringify(entry));
+    } catch {
+        // Penyimpanan penuh / diblokir browser: abaikan, data tetap tampil dari state
+    }
+}
+
+// Hapus cache tertentu (dipakai setelah tambah/ubah/hapus data)
+export function removeCache(...keys: CacheKey[]): void {
+    if (typeof window === "undefined") return;
+    try {
+        keys.forEach((key) => localStorage.removeItem(PREFIX + key));
+    } catch {
+        // abaikan
+    }
+}
+
+// Hapus semua cache (dipakai saat login dan logout)
+export function clearAllCache(): void {
+    if (typeof window === "undefined") return;
+    try {
+        const daftar: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(PREFIX)) daftar.push(k);
+        }
+        daftar.forEach((k) => localStorage.removeItem(k));
+    } catch {
+        // abaikan
+    }
+}
 
 
 

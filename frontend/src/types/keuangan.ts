@@ -2,6 +2,9 @@ export type TipeTransaksi = "pemasukan" | "pengeluaran";
 export type JenisTiket = "Mandiri" | "Guide";
 export type JenisPencairan = "Bank" | "E-Wallet";
 
+// Menu periode di atas halaman keuangan
+export type PeriodeKeuangan = "hari" | "bulan" | "semua";
+
 // Satu baris transaksi dari GET /api/keuangan.
 // Kolom yang tidak berlaku (atau baris lama) bernilai null -> tampil "-".
 export interface TransaksiData {
@@ -18,6 +21,7 @@ export interface TransaksiData {
     jenisTiket: JenisTiket | null;
     jenisPembayaran: string | null;
     jenisPencairan: JenisPencairan | null;
+    penyedia: string | null; // nama bank / e-wallet tujuan (baris lama = null)
     noRekening: string | null;
 }
 
@@ -41,11 +45,25 @@ export interface BatasPencairan {
     sisa: number;
 }
 
+// Bank / e-wallet tujuan pencairan, dikirim backend (config/penyedia.js)
+export interface Penyedia {
+    id: string; // contoh: "BCA", "GoPay"
+    nama: string;
+    digitMin: number;
+    digitMax: number;
+    contoh: string;
+}
+export interface DaftarPenyedia {
+    bank: Penyedia[];
+    eWallet: Penyedia[];
+}
+
 export interface KeuanganResponse {
     data: TransaksiData[];
     summary: KeuanganSummary;
     tarif: Tarif;
     batasPencairan: BatasPencairan;
+    penyedia: DaftarPenyedia;
 }
 
 // Isi Saldo -> pemasukan (nominal dihitung backend dari tiket)
@@ -63,6 +81,7 @@ export interface PencairanInput {
     nama: string;
     jumlah: number;
     jenisPencairan: JenisPencairan;
+    penyedia: string; // id bank / e-wallet, contoh: "BCA"
     noRekening: string;
 }
 

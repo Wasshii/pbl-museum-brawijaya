@@ -102,9 +102,13 @@ export default function KeuanganDetailModal({ data, onClose }: Props) {
                                 label="Jenis Pencairan"
                                 value={data.jenisPencairan ?? "-"}
                             />
+                            <Baris
+                                label="Bank / E-Wallet"
+                                value={data.penyedia ?? "-"}
+                            />
                             {data.noRekening && (
                                 <Baris
-                                    label="No. Rekening Tujuan"
+                                    label="No. Rekening / HP Tujuan"
                                     value={data.noRekening}
                                     kelas="text-black font-mono"
                                 />

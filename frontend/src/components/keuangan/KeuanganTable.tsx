@@ -1,44 +1,58 @@
 "use client";
-import { ArrowRight, User } from "lucide-react";
+import { ArrowRight, Building2, Smartphone, User } from "lucide-react";
 import type { TabKeuangan, TransaksiData } from "@/hooks/useKeuangan";
 import { formatRupiah } from "@/lib/format";
 import { labelStatus } from "@/lib/keuangan";
+import KeuanganPagination from "./KeuanganPagination";
 
 interface Props {
     tab: TabKeuangan;
-    transaksi: TransaksiData[];
+    transaksi: TransaksiData[]; // hanya baris di halaman aktif
     onDetail: (item: TransaksiData) => void;
+    halaman: number;
+    totalHalaman: number;
+    totalData: number; // jumlah seluruh baris setelah difilter
+    perHalaman: number;
+    onHalaman: (halaman: number) => void;
 }
 
-const KOLOM_MASUK = [
-    "Nama User",
-    "Jumlah Tiket",
-    "Nominal",
-    "Jenis Tiket",
-    "Status",
-    "Id Trx",
-    "Detail",
+type Rata = "kiri" | "kanan" | "tengah";
+interface Kolom {
+    label: string;
+    rata: Rata;
+}
+
+const KOLOM_MASUK: Kolom[] = [
+    { label: "Nama User", rata: "kiri" },
+    { label: "Tiket", rata: "kanan" },
+    { label: "Nominal", rata: "kanan" },
+    { label: "Jenis Tiket", rata: "tengah" },
+    { label: "Status", rata: "tengah" },
+    { label: "ID Transaksi", rata: "tengah" },
+    { label: "Detail", rata: "tengah" },
 ];
-const KOLOM_KELUAR = [
-    "Nama Admin",
-    "Nominal",
-    "Jenis Pencairan",
-    "Status",
-    "Id Trx",
-    "Detail",
+const KOLOM_KELUAR: Kolom[] = [
+    { label: "Nama Admin", rata: "kiri" },
+    { label: "Nominal", rata: "kanan" },
+    { label: "Tujuan Pencairan", rata: "tengah" },
+    { label: "Status", rata: "tengah" },
+    { label: "ID Transaksi", rata: "tengah" },
+    { label: "Detail", rata: "tengah" },
 ];
 
-// Sel pertama dan terakhir punya padding lebih lebar (sama seperti target)
 const TH_DASAR =
-    "sticky top-0 z-20 bg-white py-4 font-bold text-black text-[14px] border-b border-gray-200 bg-clip-padding";
-const thKelas = (i: number, total: number) =>
-    i === 0
-        ? `${TH_DASAR} pl-6 pr-4 text-left`
-        : i === total - 1
-          ? `${TH_DASAR} pl-4 pr-6 text-center`
-          : `${TH_DASAR} px-4 text-center`;
+    "py-4 font-bold text-black text-[14px] border-b border-gray-200 bg-white";
+const thKelas = (k: Kolom, i: number, total: number) => {
+    if (i === 0) return `${TH_DASAR} pl-6 pr-4 text-left`;
+    if (i === total - 1) return `${TH_DASAR} pl-4 pr-6 text-center`;
+    if (k.rata === "kanan") return `${TH_DASAR} pl-4 pr-8 text-right`;
+    return `${TH_DASAR} px-4 text-center`;
+};
 
 const TD = "py-4 px-4 text-center border-b border-gray-100";
+// Angka (tiket & nominal): rata kanan, lebar angka seragam
+const TD_ANGKA =
+    "py-4 pr-8 pl-4 text-right border-b border-gray-100 font-mono tabular-nums";
 
 const STATUS_STYLE: Record<string, { pil: string; titik: string }> = {
     berhasil: { pil: "text-[#00a814] bg-emerald-50", titik: "bg-[#00c918]" },
@@ -55,6 +69,28 @@ function Pil({ teks }: { teks: string | null }) {
     );
 }
 
+// Nama bank / e-wallet tujuan. Baris lama (belum ada nama) tampil "Transfer Bank" / "E-Wallet".
+function PilPencairan({
+    jenis,
+    penyedia,
+}: {
+    jenis: string | null;
+    penyedia: string | null;
+}) {
+    if (!jenis) return <span className="text-gray-400">-</span>;
+    const bank = jenis === "Bank";
+    return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-900 border border-gray-200 font-bold">
+            {bank ? (
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+            ) : (
+                <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span>{penyedia ?? (bank ? "Transfer Bank" : jenis)}</span>
+        </span>
+    );
+}
+
 function StatusPil({ status }: { status: string }) {
     const gaya = STATUS_STYLE[status] ?? {
         pil: "text-gray-600 bg-gray-100",
@@ -62,37 +98,37 @@ function StatusPil({ status }: { status: string }) {
     };
     return (
         <span
-            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full ${gaya.pil}`}>
+            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold ${gaya.pil}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${gaya.titik}`}></span>
             {labelStatus(status)}
         </span>
     );
 }
 
-export default function KeuanganTable({ tab, transaksi, onDetail }: Props) {
+export default function KeuanganTable({
+    tab,
+    transaksi,
+    onDetail,
+    halaman,
+    totalHalaman,
+    totalData,
+    perHalaman,
+    onHalaman,
+}: Props) {
     const masuk = tab === "masuk";
     const kolom = masuk ? KOLOM_MASUK : KOLOM_KELUAR;
 
     return (
-        <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden flex-grow flex flex-col">
-            <div className="px-6 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between text-xs text-gray-500 font-medium">
-                <span>Menampilkan {transaksi.length} transaksi</span>
-                <span className="hidden sm:inline text-gray-400">
-                    Scroll ke bawah untuk melihat riwayat lengkap
-                </span>
-            </div>
-
-            {/* Tinggi dibatasi supaya bisa di-scroll; header menempel (sticky) tanpa celah
-                karena memakai border-separate. glass-scroll ada di globals.css */}
-            <div className="max-h-[460px] overflow-y-auto overflow-x-auto glass-scroll">
+        <div className="bg-white rounded-[24px] shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+            <div className="overflow-x-auto glass-scroll">
                 <table className="w-full text-left min-w-[760px] border-separate border-spacing-0 font-sans">
-                    <thead className="sticky top-0 z-20 bg-white">
+                    <thead>
                         <tr className="bg-white">
-                            {kolom.map((label, i) => (
+                            {kolom.map((k, i) => (
                                 <th
-                                    key={label}
-                                    className={thKelas(i, kolom.length)}>
-                                    {label}
+                                    key={k.label}
+                                    className={thKelas(k, i, kolom.length)}>
+                                    {k.label}
                                 </th>
                             ))}
                         </tr>
@@ -116,12 +152,12 @@ export default function KeuanganTable({ tab, transaksi, onDetail }: Props) {
                                 {masuk ? (
                                     <>
                                         <td
-                                            className={`${TD} font-semibold text-[14px] text-gray-800`}>
+                                            className={`${TD_ANGKA} font-semibold text-[14px] text-gray-800`}>
                                             {item.jumlahTiket ?? "-"}
                                         </td>
                                         <td
-                                            className={`${TD} font-bold text-[14px] text-emerald-600 whitespace-nowrap`}>
-                                            + {formatRupiah(item.jumlah)}
+                                            className={`${TD_ANGKA} font-bold text-[14px] text-[#1F1F1F] whitespace-nowrap`}>
+                                            {formatRupiah(item.jumlah)}
                                         </td>
                                         <td
                                             className={`${TD} font-medium text-[13px]`}>
@@ -131,12 +167,15 @@ export default function KeuanganTable({ tab, transaksi, onDetail }: Props) {
                                 ) : (
                                     <>
                                         <td
-                                            className={`${TD} font-bold text-[14px] text-rose-600 whitespace-nowrap`}>
+                                            className={`${TD_ANGKA} font-bold text-[14px] text-[#1F1F1F] whitespace-nowrap`}>
                                             - {formatRupiah(item.jumlah)}
                                         </td>
                                         <td
                                             className={`${TD} font-medium text-[13px]`}>
-                                            <Pil teks={item.jenisPencairan} />
+                                            <PilPencairan
+                                                jenis={item.jenisPencairan}
+                                                penyedia={item.penyedia}
+                                            />
                                         </td>
                                     </>
                                 )}
@@ -168,13 +207,21 @@ export default function KeuanganTable({ tab, transaksi, onDetail }: Props) {
                                     colSpan={kolom.length}
                                     className="py-16 text-center text-gray-500 font-semibold text-[14px]">
                                     Tidak ada data transaksi yang cocok dengan
-                                    filter atau pencarian.
+                                    periode atau filter yang dipilih.
                                 </td>
                             </tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
+            <KeuanganPagination
+                halaman={halaman}
+                totalHalaman={totalHalaman}
+                totalData={totalData}
+                perHalaman={perHalaman}
+                onChange={onHalaman}
+            />
         </div>
     );
 }

@@ -4,6 +4,7 @@ const {
     BIAYA_PEMANDU,
     hitungNominal,
 } = require("../config/tarif");
+const { DAFTAR_PENYEDIA } = require("../config/penyedia");
 
 // Isi Saldo lewat web admin = bayar tunai di loket (dibantu staff).
 // Pembayaran non tunai nanti datang dari aplikasi mobile.
@@ -24,6 +25,7 @@ const formatTransaksi = (item) => ({
     jenisTiket: item.jenis_tiket,
     jenisPembayaran: item.jenis_pembayaran,
     jenisPencairan: item.jenis_pencairan,
+    penyedia: item.penyedia_pencairan, // nama bank / e-wallet tujuan
     noRekening: item.no_rekening,
 });
 
@@ -41,6 +43,7 @@ exports.getSemuaKeuangan = async (req, res) => {
             summary, // { totalPemasukan, totalPengeluaran, saldo }
             tarif: { hargaTiket: HARGA_TIKET, biayaPemandu: BIAYA_PEMANDU },
             batasPencairan, // { maksimumPerBulan, terpakaiBulanIni, sisa }
+            penyedia: DAFTAR_PENYEDIA, // { bank: [...], eWallet: [...] }
         });
     } catch (error) {
         console.error("[KEUANGAN ERROR]", error);
@@ -77,9 +80,11 @@ exports.tambahKeuangan = async (req, res) => {
                 jenis: "Pengeluaran",
                 nominal,
                 keterangan:
-                    b.deskripsi || `Pencairan dana ke ${b.jenisPencairan}`,
+                    b.deskripsi ||
+                    `Pencairan dana ke ${b.jenisPencairan} - ${b.penyedia}`,
                 nama: b.nama,
                 jenisPencairan: b.jenisPencairan,
+                penyediaPencairan: b.penyedia,
                 noRekening: b.noRekening,
             });
             message = "Pencairan berhasil diproses";

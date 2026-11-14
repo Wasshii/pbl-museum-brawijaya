@@ -15,8 +15,8 @@ const buatIdTrx = () =>
 const SQL_INSERT = `
     INSERT INTO keuangan
         (id_trx, jenis, nominal, keterangan, nama, no_telepon, jumlah_tiket,
-         jenis_tiket, jenis_pembayaran, jenis_pencairan, no_rekening)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+         jenis_tiket, jenis_pembayaran, jenis_pencairan, penyedia_pencairan, no_rekening)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
 // Simpan 1 baris. Kalau Id Trx kebetulan kembar (UNIQUE), buat ulang.
 const insert = async (conn, d) => {
@@ -34,6 +34,7 @@ const insert = async (conn, d) => {
                 d.jenisTiket ?? null,
                 d.jenisPembayaran ?? null,
                 d.jenisPencairan ?? null,
+                d.penyediaPencairan ?? null,
                 d.noRekening ?? null,
             ]);
             return { id: result.insertId, idTrx };

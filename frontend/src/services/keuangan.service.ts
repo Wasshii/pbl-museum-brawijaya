@@ -12,6 +12,7 @@ export const getKeuangan = async (): Promise<KeuanganResponse> => {
         summary: response.data.summary,
         tarif: response.data.tarif,
         batasPencairan: response.data.batasPencairan,
+        penyedia: response.data.penyedia,
     };
 };
 
