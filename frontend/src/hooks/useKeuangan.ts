@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
@@ -33,6 +33,9 @@ export interface RentangTanggal {
 
 // Jumlah baris per halaman tabel
 export const BARIS_PER_HALAMAN = 10;
+
+// Seberapa sering data diambil ulang dari server (pesanan baru dari mobile masuk kapan saja)
+const SEGARKAN_MS = 15_000;
 
 const TRANSAKSI_KOSONG: TransaksiData[] = [];
 const RENTANG_KOSONG: RentangTanggal = { dari: "", sampai: "" };
@@ -80,6 +83,16 @@ export function useKeuangan() {
     const penyedia = respons?.penyedia ?? PENYEDIA_KOSONG;
 
     const [submitting, setSubmitting] = useState(false);
+
+    // Cache 5 menit terlalu lama untuk pesanan dari aplikasi mobile: data diambil ulang
+    // saat halaman dibuka, lalu tiap 15 detik selama halaman ini terbuka.
+    useEffect(() => {
+        void fetchKeuangan();
+        const timer = setInterval(() => {
+            void fetchKeuangan();
+        }, SEGARKAN_MS);
+        return () => clearInterval(timer);
+    }, [fetchKeuangan]);
 
     const [periode, setPeriodeState] = useState<PeriodeKeuangan>("bulan");
     const [tab, setTabState] = useState<TabKeuangan>("masuk");
@@ -167,10 +180,7 @@ export function useKeuangan() {
     );
 
     // Pagination (di sisi klien, karena backend mengirim semua transaksi sekaligus)
-    const totalHalaman = Math.max(
-        1,
-        Math.ceil(daftar.length / BARIS_PER_HALAMAN),
-    );
+    const totalHalaman = Math.max(1, Math.ceil(daftar.length / BARIS_PER_HALAMAN));
     const halamanAktif = Math.min(halaman, totalHalaman);
     const daftarHalaman = useMemo(
         () =>
@@ -221,6 +231,27 @@ export function useKeuangan() {
         }
     };
 
+    // Admin menyetujui pembayaran tunai dari aplikasi mobile
+    const konfirmasi = async (item: TransaksiData) => {
+        try {
+            await keuanganService.konfirmasiKeuangan(item.id);
+            notify({
+                type: "success",
+                title: "Pembayaran dikonfirmasi",
+                message: `Pesanan ${item.idTrx ?? ""} atas nama ${item.nama ?? "-"} sudah dibayar.`,
+            });
+            setDetail(null);
+            removeCache(CACHE_KEYS.dashboard);
+            await fetchKeuangan();
+        } catch (error) {
+            notify({
+                type: "error",
+                title: "Gagal",
+                message: getErrorMessage(error, "Gagal mengonfirmasi pembayaran."),
+            });
+        }
+    };
+
     const handleIsiSaldo = (data: IsiSaldoInput) => kirim(data);
     const handlePencairan = (data: PencairanInput) => kirim(data);
 
@@ -259,5 +290,6 @@ export function useKeuangan() {
         setDetail,
         handleIsiSaldo,
         handlePencairan,
+        konfirmasi,
     };
 }

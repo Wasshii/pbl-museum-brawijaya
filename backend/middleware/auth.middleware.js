@@ -41,4 +41,15 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { authenticate, requireAdmin };
+// Fungsi satpam khusus untuk pengunjung aplikasi mobile
+const requireVisitor = (req, res, next) => {
+    if (req.user.role !== "visitor") {
+        return res.status(403).json({
+            success: false,
+            message: "Akses ditolak. Hanya untuk pengunjung aplikasi.",
+        });
+    }
+    next();
+};
+
+module.exports = { authenticate, requireAdmin, requireVisitor };

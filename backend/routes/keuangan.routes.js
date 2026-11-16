@@ -24,4 +24,12 @@ router.post(
     keuanganController.tambahKeuangan,
 );
 
+// Admin mengonfirmasi pembayaran tunai pesanan dari aplikasi mobile
+router.patch(
+    "/:id/konfirmasi",
+    authenticate,
+    requireAdmin,
+    keuanganController.konfirmasiPembayaran,
+);
+
 module.exports = router;

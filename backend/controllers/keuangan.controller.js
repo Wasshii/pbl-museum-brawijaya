@@ -5,6 +5,7 @@ const {
     hitungNominal,
 } = require("../config/tarif");
 const { DAFTAR_PENYEDIA } = require("../config/penyedia");
+const { buatKodeAkses } = require("../config/akses");
 
 // Isi Saldo lewat web admin = bayar tunai di loket (dibantu staff).
 // Pembayaran non tunai nanti datang dari aplikasi mobile.
@@ -27,6 +28,8 @@ const formatTransaksi = (item) => ({
     jenisPencairan: item.jenis_pencairan,
     penyedia: item.penyedia_pencairan, // nama bank / e-wallet tujuan
     noRekening: item.no_rekening,
+    kodeAkses: item.kode_akses, // null = bukan transaksi tiket
+    aksesKedaluwarsa: Boolean(item.akses_kedaluwarsa), // true = lewat 23:59
 });
 
 exports.getSemuaKeuangan = async (req, res) => {
@@ -72,6 +75,8 @@ exports.tambahKeuangan = async (req, res) => {
                 jumlahTiket: b.jumlahTiket,
                 jenisTiket: b.jenisTiket,
                 jenisPembayaran: PEMBAYARAN_WEB_ADMIN,
+                // Kode akses otomatis; admin memberikannya ke pengunjung untuk dipakai di aplikasi
+                kodeAkses: buatKodeAkses(),
             });
             message = "Saldo berhasil ditambahkan";
         } else {
@@ -108,6 +113,26 @@ exports.tambahKeuangan = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Gagal menyimpan transaksi keuangan",
+        });
+    }
+};
+
+// Admin menyetujui pembayaran TUNAI dari aplikasi mobile (Pending -> Berhasil)
+exports.konfirmasiPembayaran = async (req, res) => {
+    try {
+        const ok = await Keuangan.konfirmasi(req.params.id);
+        if (!ok) {
+            return res.status(404).json({
+                success: false,
+                message: "Transaksi tidak ditemukan atau sudah dikonfirmasi",
+            });
+        }
+        res.json({ success: true, message: "Pembayaran dikonfirmasi" });
+    } catch (error) {
+        console.error("[KEUANGAN ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengonfirmasi pembayaran",
         });
     }
 };

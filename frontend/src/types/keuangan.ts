@@ -23,6 +23,8 @@ export interface TransaksiData {
     jenisPencairan: JenisPencairan | null;
     penyedia: string | null; // nama bank / e-wallet tujuan (baris lama = null)
     noRekening: string | null;
+    kodeAkses: string | null; // kode akses tiket (null = bukan transaksi tiket)
+    aksesKedaluwarsa: boolean; // true = sudah lewat jam 23:59
 }
 
 // Angka kartu dihitung backend (hanya transaksi berstatus berhasil)

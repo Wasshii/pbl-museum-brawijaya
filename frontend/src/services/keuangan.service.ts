@@ -26,3 +26,8 @@ export const tambahKeuangan = async (
         jumlah: response.data.jumlah,
     };
 };
+
+// Admin menyetujui pembayaran tunai pesanan dari aplikasi mobile (Pending -> Berhasil)
+export const konfirmasiKeuangan = async (id: number): Promise<void> => {
+    await api.patch(`/api/keuangan/${id}/konfirmasi`);
+};

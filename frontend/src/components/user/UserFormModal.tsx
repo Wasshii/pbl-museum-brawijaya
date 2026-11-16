@@ -12,14 +12,12 @@ const KOSONG: UserEditValues = {
     phone: "",
     email: "",
     address: "",
-    status: "Online",
     createdAt: "",
 };
 
 // Class disalin dari form lama
 const INPUT =
     "w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:outline-none text-black font-semibold text-sm";
-const SELECT = `${INPUT} bg-white cursor-pointer`;
 const TEXTAREA = `${INPUT} resize-none`;
 
 interface Props {
@@ -92,9 +90,13 @@ function UserForm({
 
     return (
         <>
-            <h2 className="text-2xl font-bold text-black mb-6">
+            <h2 className="text-2xl font-bold text-black mb-2">
                 {isEdit ? "Edit Data User" : "Tambahkan User Baru"}
             </h2>
+            <p className="text-xs text-gray-500 font-medium mb-5">
+                Isi nomor telepon atau email (minimal salah satu). Status Online
+                / Offline diatur otomatis dari aplikasi mobile.
+            </p>
 
             <form onSubmit={submit} noValidate className="space-y-4">
                 <Field label="Nama User" error={errors.name}>
@@ -129,22 +131,7 @@ function UserForm({
                     />
                 </Field>
 
-                <Field label="Status" error={errors.status}>
-                    <select
-                        value={values.status}
-                        onChange={(e) =>
-                            set(
-                                "status",
-                                e.target.value as UserEditValues["status"],
-                            )
-                        }
-                        className={SELECT}>
-                        <option value="Online">Online</option>
-                        <option value="Offline">Offline</option>
-                    </select>
-                </Field>
-
-                <Field label="Alamat" error={errors.address}>
+                <Field label="Alamat (opsional)" error={errors.address}>
                     <textarea
                         rows={2}
                         value={values.address}

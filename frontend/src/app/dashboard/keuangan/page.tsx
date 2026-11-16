@@ -116,6 +116,7 @@ function KeuanganContent() {
         setDetail,
         handleIsiSaldo,
         handlePencairan,
+        konfirmasi,
     } = useKeuangan();
 
     // Buka tab langsung lewat alamat: /dashboard/keuangan?tab=keluar
@@ -276,6 +277,7 @@ function KeuanganContent() {
             <KeuanganDetailModal
                 data={detail}
                 onClose={() => setDetail(null)}
+                onKonfirmasi={konfirmasi}
             />
         </div>
     );

@@ -3,10 +3,12 @@
 import Modal from "@/components/ui/BaseModal";
 import StatusBadge from "@/components/user/StatusBadge";
 import UserAvatar from "@/components/user/UserAvatar";
+import { tampilkan, waktuAktifTerakhir } from "@/lib/user";
 import type { User } from "@/types/user";
 
 interface Props {
     user: User | null; // null = modal tertutup
+    now: number;
     onClose: () => void;
 }
 
@@ -19,7 +21,7 @@ function Row({ label, value }: { label: string; value: string }) {
     );
 }
 
-export default function UserDetailModal({ user, onClose }: Props) {
+export default function UserDetailModal({ user, now, onClose }: Props) {
     return (
         <Modal
             open={!!user}
@@ -39,14 +41,20 @@ export default function UserDetailModal({ user, onClose }: Props) {
                         <h2 className="text-2xl font-bold text-black text-center">
                             {user.name}
                         </h2>
-                        <StatusBadge status={user.status} />
+                        <StatusBadge user={user} now={now} />
                     </div>
 
                     <div className="space-y-3.5 text-sm border-t border-gray-100 pt-4">
-                        <Row label="Nomer Tlp" value={user.phone} />
-                        <Row label="Email" value={user.email} />
-                        <Row label="Alamat" value={user.address} />
+                        <Row label="Nomer Tlp" value={tampilkan(user.phone)} />
+                        <Row label="Email" value={tampilkan(user.email)} />
+                        <Row label="Alamat" value={tampilkan(user.address)} />
                         <Row label="Dibuat Tgl" value={user.createdAt} />
+                        {user.status === "Offline" && user.lastActiveAt && (
+                            <Row
+                                label="Offline Sejak"
+                                value={waktuAktifTerakhir(user.lastActiveAt)}
+                            />
+                        )}
                     </div>
 
                     <button

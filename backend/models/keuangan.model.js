@@ -15,8 +15,10 @@ const buatIdTrx = () =>
 const SQL_INSERT = `
     INSERT INTO keuangan
         (id_trx, jenis, nominal, keterangan, nama, no_telepon, jumlah_tiket,
-         jenis_tiket, jenis_pembayaran, jenis_pencairan, penyedia_pencairan, no_rekening)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+         jenis_tiket, jenis_pembayaran, jenis_pencairan, penyedia_pencairan, no_rekening,
+         status, pengunjung_id, kode_akses, kedaluwarsa_akses)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            IF(? IS NULL, NULL, TIMESTAMP(CURDATE(), '23:59:59')))`;
 
 // Simpan 1 baris. Kalau Id Trx kebetulan kembar (UNIQUE), buat ulang.
 const insert = async (conn, d) => {
@@ -36,6 +38,10 @@ const insert = async (conn, d) => {
                 d.jenisPencairan ?? null,
                 d.penyediaPencairan ?? null,
                 d.noRekening ?? null,
+                d.status ?? "Berhasil",
+                d.pengunjungId ?? null,
+                d.kodeAkses ?? null,
+                d.kodeAkses ?? null, // dipakai untuk menghitung kedaluwarsa (23:59:59 hari ini)
             ]);
             return { id: result.insertId, idTrx };
         } catch (err) {
@@ -66,9 +72,64 @@ const SQL_PENCAIRAN_BULAN_INI = `
 const Keuangan = {
     getAll: async () => {
         const [rows] = await db.query(
-            "SELECT * FROM keuangan ORDER BY tanggal DESC, id DESC",
+            `SELECT *,
+                    (kedaluwarsa_akses IS NOT NULL AND kedaluwarsa_akses <= NOW()) AS akses_kedaluwarsa
+             FROM keuangan ORDER BY tanggal DESC, id DESC`,
         );
         return rows;
+    },
+
+    // ---------- pesanan tiket dari aplikasi mobile ----------
+    findByTrx: async (idTrx) => {
+        const [rows] = await db.query(
+            "SELECT * FROM keuangan WHERE id_trx = ?",
+            [idTrx],
+        );
+        return rows[0] || null;
+    },
+
+    listByPengunjung: async (pengunjungId) => {
+        const [rows] = await db.query(
+            `SELECT * FROM keuangan
+             WHERE pengunjung_id = ? AND jenis = 'Pemasukan'
+             ORDER BY tanggal DESC, id DESC`,
+            [pengunjungId],
+        );
+        return rows;
+    },
+
+    setStatus: async (id, status) => {
+        await db.query("UPDATE keuangan SET status = ? WHERE id = ?", [
+            status,
+            id,
+        ]);
+    },
+
+    // Konfirmasi pembayaran tunai oleh admin: Pending -> Berhasil.
+    // Kode akses berlaku sampai 23:59:59 HARI KONFIRMASI. true jika ada baris berubah.
+    konfirmasi: async (id) => {
+        const [result] = await db.query(
+            `UPDATE keuangan
+             SET status = 'Berhasil',
+                 kedaluwarsa_akses = IF(kode_akses IS NULL, NULL, TIMESTAMP(CURDATE(), '23:59:59'))
+             WHERE id = ? AND jenis = 'Pemasukan' AND status = 'Pending'`,
+            [id],
+        );
+        return result.affectedRows > 0;
+    },
+
+    // Kode akses sah: transaksi berhasil, belum lewat 23:59, milik akun ini
+    // (atau kode dari loket / admin yang tidak terikat akun mana pun).
+    cekKodeAkses: async (kode, pengunjungId) => {
+        const [rows] = await db.query(
+            `SELECT id FROM keuangan
+             WHERE kode_akses = ? AND jenis = 'Pemasukan' AND status = 'Berhasil'
+               AND kedaluwarsa_akses > NOW()
+               AND (pengunjung_id = ? OR pengunjung_id IS NULL)
+             LIMIT 1`,
+            [kode, pengunjungId],
+        );
+        return rows.length > 0;
     },
 
     getSummary: async (conn = db) => {
@@ -94,6 +155,7 @@ const Keuangan = {
 
     // Isi Saldo (pemasukan): saldo hanya bertambah, tidak perlu dikunci
     create: (data) => insert(db, data),
+    createPesanan: (data) => insert(db, data), // pesanan dari aplikasi mobile
 
     // Pencairan (pengeluaran): saldo dicek dulu. Dikunci supaya dua pencairan
     // yang masuk bersamaan tidak sama-sama lolos dari saldo yang sama.

@@ -1,27 +1,42 @@
 const Pengunjung = require("../models/pengunjung.model");
+const { BATAS_ONLINE_DETIK } = require("../config/presence");
 
 // Avatar default sementara jika user belum punya foto
 const DUMMY_AVATAR =
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80";
 
+const adaDuplikat = (error) => error.code === "ER_DUP_ENTRY";
+
 exports.getSemuaPengunjung = async (req, res) => {
     try {
         const data = await Pengunjung.getAll();
 
-        // Sesuaikan format data MySQL dengan tipe TypeScript di Frontend
-        const formattedData = data.map((item) => ({
-            id: item.id,
-            name: item.nama,
-            phone: item.no_telp,
-            email: item.email,
-            address: item.alamat,
-            status: item.status,
-            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
-            createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
-                "sv-SE",
-            ),
-            avatar: item.avatar || DUMMY_AVATAR,
-        }));
+        const formattedData = data.map((item) => {
+            // Detik sejak aktif terakhir (null = belum pernah memakai aplikasi)
+            const detik =
+                item.terakhir_aktif && item.detik_sejak_aktif !== null
+                    ? Math.max(0, Number(item.detik_sejak_aktif))
+                    : null;
+            // Online hanya jika terakhir melapor Online DAN heartbeat masih baru
+            const online =
+                item.status === "Online" &&
+                detik !== null &&
+                detik <= BATAS_ONLINE_DETIK;
+
+            return {
+                id: item.id,
+                name: item.nama,
+                phone: item.no_telp, // null jika daftar lewat email
+                email: item.email, // null jika daftar lewat telepon
+                address: item.alamat,
+                status: online ? "Online" : "Offline",
+                inactiveSeconds: detik, // dipakai web untuk "Offline 5 menit lalu"
+                createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
+                    "sv-SE",
+                ),
+                avatar: item.avatar || DUMMY_AVATAR,
+            };
+        });
 
         res.json({ success: true, data: formattedData });
     } catch (error) {
@@ -35,13 +50,12 @@ exports.getSemuaPengunjung = async (req, res) => {
 
 exports.tambahPengunjung = async (req, res) => {
     try {
-        const { name, phone, email, address, status } = req.body;
+        const { name, phone, email, address } = req.body;
         const insertId = await Pengunjung.create({
             nama: name,
             no_telp: phone,
-            email: email,
+            email,
             alamat: address,
-            status: status,
             avatar: DUMMY_AVATAR,
         });
         res.status(201).json({
@@ -51,25 +65,37 @@ exports.tambahPengunjung = async (req, res) => {
         });
     } catch (error) {
         console.error("[USER ERROR]", error);
+        if (adaDuplikat(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Email atau nomor telepon sudah terdaftar",
+            });
+        }
         res.status(500).json({
             success: false,
-            message: "Gagal menambah data (Email mungkin sudah terdaftar)",
+            message: "Gagal menambah data",
         });
     }
 };
 
 exports.ubahPengunjung = async (req, res) => {
     try {
-        const { name, phone, email, address, status } = req.body;
+        const { name, phone, email, address } = req.body;
         await Pengunjung.update(req.params.id, {
             nama: name,
             no_telp: phone,
-            email: email,
+            email,
             alamat: address,
-            status: status,
         });
         res.json({ success: true, message: "Berhasil diperbarui" });
     } catch (error) {
+        console.error("[USER ERROR]", error);
+        if (adaDuplikat(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Email atau nomor telepon sudah dipakai pengunjung lain",
+            });
+        }
         res.status(500).json({
             success: false,
             message: "Gagal memperbarui data",

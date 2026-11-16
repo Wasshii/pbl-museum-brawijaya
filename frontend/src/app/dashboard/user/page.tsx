@@ -8,11 +8,12 @@ import UserDetailModal from "@/components/user/UserDetailModal";
 import UserFormModal from "@/components/user/UserFormModal";
 import UserTable from "@/components/user/UserTable";
 import { useUsers } from "@/hooks/useUsers";
+import { toEditValues } from "@/lib/user";
 import type { User } from "@/types/user";
 
 export default function DataUserPage() {
     // Data dan logika (cari, tambah, ubah, hapus) ada di hook
-    const { users, search, setSearch, addUser, editUser, removeUser } =
+    const { users, now, search, setSearch, addUser, editUser, removeUser } =
         useUsers();
 
     // State yang murni tampilan tetap di halaman
@@ -46,6 +47,7 @@ export default function DataUserPage() {
 
             <UserTable
                 users={users}
+                now={now}
                 isEditMode={isEditMode}
                 onToggleEditMode={() => setIsEditMode((prev) => !prev)}
                 onDetail={setDetailUser}
@@ -56,6 +58,7 @@ export default function DataUserPage() {
             {/* ================= MODALS ================= */}
             <UserDetailModal
                 user={detailUser}
+                now={now}
                 onClose={() => setDetailUser(null)}
             />
 
@@ -72,11 +75,12 @@ export default function DataUserPage() {
             <UserFormModal
                 open={!!editTarget}
                 mode="edit"
-                initialValues={editTarget ?? undefined}
+                initialValues={
+                    editTarget ? toEditValues(editTarget) : undefined
+                }
                 onClose={() => setEditTarget(null)}
                 onSubmit={async (values) => {
-                    if (editTarget)
-                        await editUser({ ...editTarget, ...values });
+                    if (editTarget) await editUser(editTarget, values);
                     setEditTarget(null);
                 }}
             />

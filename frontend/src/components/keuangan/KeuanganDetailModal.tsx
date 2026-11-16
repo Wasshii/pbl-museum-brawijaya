@@ -1,5 +1,5 @@
 "use client";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import BaseModal from "@/components/ui/BaseModal";
 import { formatRupiah, formatTanggalSingkat } from "@/lib/format";
 import { labelStatus } from "@/lib/keuangan";
@@ -8,6 +8,8 @@ import type { TransaksiData } from "@/types/keuangan";
 interface Props {
     data: TransaksiData | null;
     onClose: () => void;
+    // Konfirmasi pembayaran tunai dari aplikasi mobile (hanya muncul untuk status pending)
+    onKonfirmasi?: (data: TransaksiData) => Promise<void> | void;
 }
 
 const WARNA_STATUS: Record<string, string> = {
@@ -38,17 +40,46 @@ function Baris({
     );
 }
 
-export default function KeuanganDetailModal({ data, onClose }: Props) {
+// Kode akses: dicoret + tulisan "Kedaluwarsa" bila sudah lewat jam 23:59
+function BarisKodeAkses({ data }: { data: TransaksiData }) {
+    const kode = data.kodeAkses;
+    return (
+        <div className="flex justify-between items-center gap-4 py-3.5 border-b border-gray-100">
+            <span className="text-gray-500 font-semibold text-[14px]">
+                Kode Akses
+            </span>
+            {kode ? (
+                <span className="flex items-center gap-2 min-w-0">
+                    {data.aksesKedaluwarsa && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 shrink-0">
+                            Kedaluwarsa
+                        </span>
+                    )}
+                    <span
+                        className={`font-mono font-bold text-[14px] break-all ${
+                            data.aksesKedaluwarsa
+                                ? "line-through text-gray-400"
+                                : "text-black"
+                        }`}>
+                        {kode}
+                    </span>
+                </span>
+            ) : (
+                <span className="font-bold text-[14px] text-black">-</span>
+            )}
+        </div>
+    );
+}
+
+export default function KeuanganDetailModal({
+    data,
+    onClose,
+    onKonfirmasi,
+}: Props) {
     if (!data) return null;
 
     const masuk = data.tipe === "pemasukan";
-    const statusBaris = (
-        <Baris
-            label="Status"
-            value={labelStatus(data.status)}
-            kelas={WARNA_STATUS[data.status] ?? "text-black"}
-        />
-    );
+    const perluKonfirmasi = masuk && data.status === "pending";
 
     return (
         <BaseModal
@@ -65,11 +96,7 @@ export default function KeuanganDetailModal({ data, onClose }: Props) {
                     {masuk ? (
                         <>
                             <Baris label="Nama User" value={data.nama ?? "-"} />
-                            <Baris
-                                label="Nomor Telepon"
-                                value={data.noTelepon ?? "-"}
-                                kelas="text-black font-mono"
-                            />
+                            <BarisKodeAkses data={data} />
                             <Baris
                                 label="Jumlah Tiket"
                                 value={
@@ -125,7 +152,11 @@ export default function KeuanganDetailModal({ data, onClose }: Props) {
                         label="Tanggal"
                         value={formatTanggalSingkat(data.tanggal) || "-"}
                     />
-                    {statusBaris}
+                    <Baris
+                        label="Status"
+                        value={labelStatus(data.status)}
+                        kelas={WARNA_STATUS[data.status] ?? "text-black"}
+                    />
                     <Baris
                         label="ID Trx"
                         value={data.idTrx ?? "-"}
@@ -133,9 +164,18 @@ export default function KeuanganDetailModal({ data, onClose }: Props) {
                     />
                 </div>
 
+                {perluKonfirmasi && onKonfirmasi && (
+                    <button
+                        onClick={() => onKonfirmasi(data)}
+                        className="mt-6 w-full bg-[#222] hover:bg-black text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors border-0">
+                        <CheckCircle2 className="w-5 h-5" /> Konfirmasi
+                        Pembayaran Tunai
+                    </button>
+                )}
+
                 <button
                     onClick={onClose}
-                    className="mt-6 w-full bg-gray-100 hover:bg-gray-200 text-black font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors border-0">
+                    className="mt-3 w-full bg-gray-100 hover:bg-gray-200 text-black font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors border-0">
                     <ArrowLeft className="w-5 h-5" /> Kembali
                 </button>
             </div>

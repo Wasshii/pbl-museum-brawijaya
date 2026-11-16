@@ -3,10 +3,12 @@
 import { ArrowRight, Edit3, Trash2 } from "lucide-react";
 import StatusBadge from "@/components/user/StatusBadge";
 import UserAvatar from "@/components/user/UserAvatar";
+import { tampilkan } from "@/lib/user";
 import type { User } from "@/types/user";
 
 interface Props {
     users: User[];
+    now: number; // untuk teks "Offline 5 menit lalu"
     isEditMode: boolean;
     onToggleEditMode: () => void;
     onDetail: (user: User) => void;
@@ -19,6 +21,7 @@ const TH =
 
 export default function UserTable({
     users,
+    now,
     isEditMode,
     onToggleEditMode,
     onDetail,
@@ -69,15 +72,17 @@ export default function UserTable({
                                             <span>{user.name}</span>
                                         </div>
                                     </td>
+                                    {/* Daftar lewat email -> telepon "-", dan sebaliknya */}
                                     <td className="py-4 px-4 text-gray-700 font-medium text-[14px]">
-                                        {user.phone}
+                                        {tampilkan(user.phone)}
                                     </td>
                                     <td className="py-4 px-4 text-gray-700 font-medium text-[14px]">
-                                        {user.email}
+                                        {tampilkan(user.email)}
                                     </td>
                                     <td className="py-4 px-4 font-bold text-[13px]">
                                         <StatusBadge
-                                            status={user.status}
+                                            user={user}
+                                            now={now}
                                             withDot
                                         />
                                     </td>
