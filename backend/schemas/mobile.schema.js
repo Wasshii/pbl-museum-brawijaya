@@ -86,3 +86,14 @@ exports.orderSchema = z.object({
 exports.accessSchema = z.object({
     code: z.string().trim().min(1, "Kode akses wajib diisi").max(20),
 });
+
+// Kirim ulasan (multipart): bintang wajib 1-5, teks opsional maksimal 200 karakter.
+// Nilai multipart selalu teks, jadi rating dikonversi ke angka (coerce).
+exports.feedbackKirimSchema = z.object({
+    rating: z.coerce
+        .number({ error: "Silakan rating kepuasan Anda" })
+        .int("Silakan rating kepuasan Anda")
+        .min(1, "Silakan rating kepuasan Anda")
+        .max(5, "Rating maksimal 5"),
+    review: z.string().trim().max(200, "Ulasan maksimal 200 karakter").optional().default(""),
+});

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
 import { useCache } from "@/hooks/useCache";
 import { getErrorMessage } from "@/lib/api";
@@ -44,6 +44,16 @@ export function useFeedback() {
         },
     );
     const feedbacks = data ?? DAFTAR_KOSONG;
+
+    // Ulasan baru masuk dari aplikasi mobile kapan saja (cache 5 menit terlalu lama):
+    // data diambil ulang saat halaman dibuka lalu tiap 15 detik selama halaman ini terbuka.
+    useEffect(() => {
+        void fetchFeedbacks();
+        const timer = setInterval(() => {
+            void fetchFeedbacks();
+        }, 15_000);
+        return () => clearInterval(timer);
+    }, [fetchFeedbacks]);
 
     const [submitting, setSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");

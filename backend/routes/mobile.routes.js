@@ -2,6 +2,7 @@ const express = require("express");
 const mobileController = require("../controllers/mobile.controller");
 const { authenticate, requireVisitor } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
+const { uploadFoto } = require("../middleware/uploadFeedback.middleware");
 const {
     kontakSchema,
     verifySchema,
@@ -31,6 +32,14 @@ router.get("/orders", ...pengunjungSaja, mobileController.listOrders);
 router.get("/orders/:trx", ...pengunjungSaja, mobileController.getOrder);
 router.post("/orders/:trx/pay", ...pengunjungSaja, mobileController.payOrder);
 router.post("/access/verify", ...pengunjungSaja, validate(accessSchema), mobileController.verifyAccess);
+
+// --- Ulasan (feedback) & hapus akun ---
+// /feedback/today harus di atas /feedback/:id
+router.get("/feedback/today", ...pengunjungSaja, mobileController.feedbackToday);
+router.post("/feedback", ...pengunjungSaja, uploadFoto, mobileController.createFeedback);
+router.get("/feedback", ...pengunjungSaja, mobileController.listFeedback);
+router.get("/feedback/:id", ...pengunjungSaja, mobileController.getFeedback);
+router.delete("/account", ...pengunjungSaja, mobileController.deleteAccount);
 
 // --- Status Online / Offline (butuh token pengunjung dari register) ---
 router.post("/presence/heartbeat", authenticate, requireVisitor, mobileController.heartbeat);

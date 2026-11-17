@@ -1,6 +1,7 @@
 "use client";
 import { X, Send, Star } from "lucide-react";
 import type { FeedbackData } from "@/types/feedback";
+import { resolveImageUrl } from "@/lib/image";
 
 interface Props {
     isOpen: boolean;
@@ -72,8 +73,35 @@ export default function FeedbackReplyModal({
                         Ulasan Pengunjung:
                     </p>
                     <div className="bg-[#2a2a2a] p-4 rounded-xl text-gray-200 leading-relaxed italic border border-gray-700/60 text-sm">
-                        &quot;{feedback.komentar}&quot;
+                        {feedback.komentar ? (
+                            <>&quot;{feedback.komentar}&quot;</>
+                        ) : (
+                            "-"
+                        )}
                     </div>
+                </div>
+
+                {/* Foto yang diunggah pengunjung (jika ada) */}
+                <div className="mb-5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 mt-0">
+                        Foto:
+                    </p>
+                    {feedback.foto ? (
+                        <a
+                            href={resolveImageUrl(feedback.foto)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Buka foto ukuran penuh">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={resolveImageUrl(feedback.foto)}
+                                alt="Foto dari pengunjung"
+                                className="max-h-56 rounded-xl border border-gray-700/60 object-cover"
+                            />
+                        </a>
+                    ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                    )}
                 </div>
 
                 {/* Status saat ini */}

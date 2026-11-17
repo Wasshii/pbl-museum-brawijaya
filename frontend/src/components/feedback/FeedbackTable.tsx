@@ -68,7 +68,7 @@ export default function FeedbackTable({ feedbacks, onReply }: Props) {
                                             className="py-4 px-4 text-gray-600 max-w-[280px] text-[14px] border-b border-gray-100"
                                             title={item.komentar}>
                                             <p className="truncate m-0">
-                                                &quot;{item.komentar}&quot;
+                                                {item.komentar ? <>&quot;{item.komentar}&quot;</> : "-"}
                                             </p>
                                             {item.balasan && (
                                                 <p className="text-[11px] text-emerald-600 truncate mt-0.5 mb-0 font-medium flex items-center gap-1">

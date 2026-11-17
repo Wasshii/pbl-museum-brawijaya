@@ -9,8 +9,9 @@ exports.getSemuaFeedback = async (req, res) => {
             id: item.id,
             nama_user: item.nama,
             rating: item.rating,
-            komentar: item.ulasan,
-            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            komentar: item.ulasan, // bisa kosong (ulasan teks bersifat opsional)
+            foto: item.foto || null, // mis. "/uploads/feedback/xxx.jpg"; null = tanpa foto
+            // Format tanggal lokal (YYYY-MM-DD)
             tanggal: new Date(item.tanggal).toLocaleDateString("sv-SE"),
             balasan: item.balasan_admin || null,
         }));

@@ -3,6 +3,9 @@ const crypto = require("crypto");
 const Pengunjung = require("../models/pengunjung.model");
 const Verifikasi = require("../models/verifikasi.model");
 const Keuangan = require("../models/keuangan.model");
+const Feedback = require("../models/feedback.model");
+const { hapusFileFoto, PUBLIC_PREFIX } = require("../middleware/uploadFeedback.middleware");
+const { feedbackKirimSchema } = require("../schemas/mobile.schema");
 const { createVisitorToken } = require("../lib/jwt");
 const { hitungNominal } = require("../config/tarif");
 const { buatKodeAkses } = require("../config/akses");
@@ -299,5 +302,108 @@ exports.verifyAccess = async (req, res) => {
         res.json({ success: true, valid });
     } catch (error) {
         galatServer(res, "[MOBILE verifyAccess]", error);
+    }
+};
+
+// =====================================================================
+// ULASAN (FEEDBACK) - tampil di menu Feed Back web admin
+// =====================================================================
+const feedbackJson = (r) => ({
+    id: r.id,
+    rating: r.rating,
+    review: r.ulasan,
+    photo: r.foto, // path relatif, mis. "/uploads/feedback/xxx.jpg"; null = tanpa foto
+    reply: r.balasan_admin, // null = belum dibalas
+    status: r.balasan_admin ? "replied" : "pending",
+    created_at: new Date(r.tanggal).toISOString(),
+});
+
+// Sudah mengirim ulasan hari ini? (kuota 1x per hari per akun)
+exports.feedbackToday = async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            sent: await Feedback.sudahKirimHariIni(req.user.id),
+        });
+    } catch (error) {
+        galatServer(res, "[MOBILE feedbackToday]", error);
+    }
+};
+
+exports.createFeedback = async (req, res) => {
+    const foto = req.file ? PUBLIC_PREFIX + req.file.filename : null;
+    try {
+        const parsed = feedbackKirimSchema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+            hapusFileFoto(foto);
+            return gagal(
+                res,
+                400,
+                "validation_error",
+                parsed.error.issues[0]?.message ?? "Data tidak valid",
+            );
+        }
+
+        const akun = await Pengunjung.findById(req.user.id);
+        if (!akun) {
+            hapusFileFoto(foto);
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+        if (await Feedback.sudahKirimHariIni(akun.id)) {
+            hapusFileFoto(foto);
+            return gagal(
+                res,
+                409,
+                "already_sent_today",
+                "Ulasan hanya bisa dikirim sekali sehari",
+            );
+        }
+
+        const id = await Feedback.create({
+            pengunjungId: akun.id,
+            nama: akun.nama,
+            rating: parsed.data.rating,
+            ulasan: parsed.data.review,
+            foto,
+        });
+        const row = await Feedback.findOwn(id, akun.id);
+        res.status(201).json({ success: true, feedback: feedbackJson(row) });
+    } catch (error) {
+        hapusFileFoto(foto);
+        galatServer(res, "[MOBILE createFeedback]", error);
+    }
+};
+
+exports.listFeedback = async (req, res) => {
+    try {
+        const rows = await Feedback.listByPengunjung(req.user.id);
+        res.json({ success: true, feedbacks: rows.map(feedbackJson) });
+    } catch (error) {
+        galatServer(res, "[MOBILE listFeedback]", error);
+    }
+};
+
+exports.getFeedback = async (req, res) => {
+    try {
+        const row = await Feedback.findOwn(req.params.id, req.user.id);
+        if (!row) return gagal(res, 404, "feedback_missing", "Ulasan tidak ditemukan");
+        res.json({ success: true, feedback: feedbackJson(row) });
+    } catch (error) {
+        galatServer(res, "[MOBILE getFeedback]", error);
+    }
+};
+
+// =====================================================================
+// HAPUS AKUN
+// =====================================================================
+// Baris akun dihapus -> tidak bisa login lagi, dan hilang dari Data User di web admin.
+// Catatan keuangan (tiket) dan ulasan lama sengaja DIPERTAHANKAN sebagai arsip museum;
+// keduanya tidak bisa dipakai siapa pun karena id akun yang dihapus tidak dipakai ulang.
+exports.deleteAccount = async (req, res) => {
+    try {
+        await Pengunjung.delete(req.user.id);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE deleteAccount]", error);
     }
 };
