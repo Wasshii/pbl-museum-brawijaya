@@ -54,7 +54,7 @@ const MENU_PERIODE: {
         label: "Bulan Ini",
         ikon: <Calendar className="w-3 h-3" />,
     },
-    { nilai: "semua", label: "Total Keseluruhan" },
+    { nilai: "semua", label: "Total Semua" },
 ];
 
 // Tombol pilihan periode yang menyatu (segmented control)
