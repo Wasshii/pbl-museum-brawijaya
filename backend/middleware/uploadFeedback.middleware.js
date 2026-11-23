@@ -8,6 +8,7 @@ const multer = require("multer");
 const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "feedback");
 const PUBLIC_PREFIX = "/uploads/feedback/";
 const MAX_FOTO_MB = 5;
+const MAX_FOTO = 3; // jumlah foto per ulasan
 
 const EXT_BY_MIME = {
     "image/jpeg": ".jpg",
@@ -28,7 +29,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: MAX_FOTO_MB * 1024 * 1024, files: 1 },
+    limits: { fileSize: MAX_FOTO_MB * 1024 * 1024, files: MAX_FOTO },
     fileFilter: (req, file, cb) => {
         if (!EXT_BY_MIME[file.mimetype]) {
             const err = new Error("Hanya menerima foto JPG, PNG, atau WEBP.");
@@ -37,7 +38,7 @@ const upload = multer({
         }
         cb(null, true);
     },
-}).single("foto"); // nama field di form aplikasi mobile
+}).array("foto", MAX_FOTO); // nama field di form aplikasi mobile (boleh diulang sampai 3 kali)
 
 // Dipasang SETELAH authenticate dan SEBELUM handler (body multipart baru terbaca setelah ini).
 const uploadFoto = (req, res, next) => {
@@ -48,7 +49,9 @@ const uploadFoto = (req, res, next) => {
             const message =
                 err.code === "LIMIT_FILE_SIZE"
                     ? `Ukuran foto maksimal ${MAX_FOTO_MB} MB.`
-                    : err.message;
+                    : err.code === "LIMIT_UNEXPECTED_FILE" || err.code === "LIMIT_FILE_COUNT"
+                      ? `Maksimal ${MAX_FOTO} foto.`
+                      : err.message;
             return res
                 .status(400)
                 .json({ success: false, code: "invalid_photo", message });
@@ -66,11 +69,29 @@ const uploadFoto = (req, res, next) => {
     });
 };
 
-// Hapus file lokal dari disk (path lain diabaikan)
-const hapusFileFoto = (foto) => {
-    if (typeof foto !== "string" || !foto.startsWith(PUBLIC_PREFIX)) return;
-    const namaFile = path.basename(foto); // basename mencegah path traversal
-    fs.unlink(path.join(UPLOAD_DIR, namaFile), () => {});
+// Kolom `foto` di database berisi array JSON, mis. ["/uploads/feedback/a.jpg","/uploads/feedback/b.jpg"].
+// Nilai lama berupa satu path biasa juga tetap terbaca.
+const parseFoto = (raw) => {
+    if (!raw || typeof raw !== "string") return [];
+    if (raw.startsWith("[")) {
+        try {
+            const arr = JSON.parse(raw);
+            return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+        } catch {
+            return [];
+        }
+    }
+    return [raw];
 };
 
-module.exports = { uploadFoto, hapusFileFoto, PUBLIC_PREFIX };
+// Hapus file lokal dari disk (path lain diabaikan). Menerima satu path atau daftar path.
+const hapusFileFoto = (foto) => {
+    const daftar = Array.isArray(foto) ? foto : [foto];
+    for (const f of daftar) {
+        if (typeof f !== "string" || !f.startsWith(PUBLIC_PREFIX)) continue;
+        const namaFile = path.basename(f); // basename mencegah path traversal
+        fs.unlink(path.join(UPLOAD_DIR, namaFile), () => {});
+    }
+};
+
+module.exports = { uploadFoto, hapusFileFoto, parseFoto, PUBLIC_PREFIX, MAX_FOTO };

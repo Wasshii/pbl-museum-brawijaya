@@ -1,17 +1,23 @@
 "use client";
 import { ArrowRight, Star } from "lucide-react";
+import Pagination, { type PaginationProps } from "@/components/ui/Pagination";
 import type { FeedbackData } from "@/types/feedback";
 import { formatTanggalSingkat } from "@/lib/format";
 
 interface Props {
-    feedbacks: FeedbackData[];
+    feedbacks: FeedbackData[]; // hanya baris di halaman aktif
+    pagination: PaginationProps;
     onReply: (item: FeedbackData) => void;
 }
 
 const TH_BASE =
     "sticky top-0 z-20 bg-white py-4 font-bold text-black whitespace-nowrap text-[14px] border-b border-gray-200 bg-clip-padding";
 
-export default function FeedbackTable({ feedbacks, onReply }: Props) {
+export default function FeedbackTable({
+    feedbacks,
+    pagination,
+    onReply,
+}: Props) {
     return (
         <div className="bg-white rounded-[24px] shadow-sm overflow-hidden border border-gray-100 flex flex-col">
             {/* max-h membatasi tinggi agar tabel bisa di-scroll, header tetap menempel di atas */}
@@ -134,6 +140,8 @@ export default function FeedbackTable({ feedbacks, onReply }: Props) {
                     </tbody>
                 </table>
             </div>
+
+            <Pagination {...pagination} satuan="feedback" />
         </div>
     );
 }

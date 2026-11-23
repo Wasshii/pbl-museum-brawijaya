@@ -5,6 +5,7 @@ import { Upload, X, Image as ImageIcon } from "lucide-react";
 import SejarahModalShell from "@/components/sejarah/SejarahModalShell";
 import FieldError from "@/components/ui/FieldError";
 import { resolveImageUrl } from "@/lib/image";
+import { KATEGORI_KOLEKSI } from "@/lib/constants";
 import { MAX_IMAGE_MB, validateImage } from "@/lib/validations/koleksi";
 import type { KoleksiFormValues } from "@/types/koleksi";
 
@@ -128,12 +129,11 @@ export default function SejarahFormModal({
                     />
                 </div>
 
-                {/* BARU: Jenis Benda dan Token */}
+                {/* Kategori benda (sama dengan tombol kategori di aplikasi) dan tahun */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className={LABEL}>Jenis Benda</label>
-                        <input
-                            type="text"
+                        <label className={LABEL}>Kategori Benda</label>
+                        <select
                             required
                             value={formData.jenis || ""}
                             onChange={(e) =>
@@ -142,24 +142,32 @@ export default function SejarahFormModal({
                                     jenis: e.target.value,
                                 })
                             }
-                            placeholder="Contoh: Senjata"
-                            className={INPUT}
-                        />
+                            className={`${INPUT} bg-white`}>
+                            <option value="" disabled>
+                                Pilih kategori
+                            </option>
+                            {KATEGORI_KOLEKSI.map((k) => (
+                                <option key={k} value={k}>
+                                    {k}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                     <div>
-                        <label className={LABEL}>Token</label>
+                        <label className={LABEL}>Tahun</label>
                         <input
                             type="text"
-                            required
-                            value={formData.token || ""}
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={formData.tahun || ""}
                             onChange={(e) =>
                                 setFormData({
                                     ...formData,
-                                    token: e.target.value,
+                                    tahun: e.target.value.replace(/\D/g, ""),
                                 })
                             }
-                            placeholder="Contoh: TKN-1234"
-                            className={`${INPUT} font-mono`}
+                            placeholder="Contoh: 1948"
+                            className={INPUT}
                         />
                     </div>
                 </div>
@@ -201,10 +209,10 @@ export default function SejarahFormModal({
                 )}
 
                 <div>
-                    <label className={LABEL}>Keterangan Penjelasan</label>
+                    <label className={LABEL}>Sejarah (tab "Cerita")</label>
                     <textarea
                         required
-                        rows={3}
+                        rows={4}
                         value={formData.deskripsi || ""}
                         onChange={(e) =>
                             setFormData({
@@ -212,7 +220,24 @@ export default function SejarahFormModal({
                                 deskripsi: e.target.value,
                             })
                         }
-                        placeholder="Deskripsi sejarah benda ini..."
+                        placeholder="Cerita sejarah benda ini..."
+                        className={`${INPUT} resize-none`}
+                    />
+                </div>
+
+                <div>
+                    <label className={LABEL}>Identitas (tab "Identitas")</label>
+                    <textarea
+                        required
+                        rows={4}
+                        value={formData.identitas || ""}
+                        onChange={(e) =>
+                            setFormData({
+                                ...formData,
+                                identitas: e.target.value,
+                            })
+                        }
+                        placeholder="Asal, bahan, ukuran, kondisi, dan keterangan lain..."
                         className={`${INPUT} resize-none`}
                     />
                 </div>

@@ -14,6 +14,18 @@ export const NAVIGATION = [
     { label: "Feed Back", href: "/dashboard/feedback", icon: MessageSquare },
 ];
 
+// Kategori benda: sama dengan tombol kategori di aplikasi mobile
+export const KATEGORI_KOLEKSI = [
+    "Mata Uang",
+    "Senjata",
+    "Kendaraan",
+    "Seragam",
+    "Peta",
+    "Alat Musik",
+    "Patung",
+    "Peristiwa",
+] as const;
+
 export const DEFAULT_KOLEKSI_IMAGE =
     "https://images.unsplash.com/photo-1544441893-675973e31985?w=600&auto=format&fit=crop&q=80";
 

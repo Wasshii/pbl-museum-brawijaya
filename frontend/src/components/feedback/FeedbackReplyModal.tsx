@@ -81,24 +81,29 @@ export default function FeedbackReplyModal({
                     </div>
                 </div>
 
-                {/* Foto yang diunggah pengunjung (jika ada) */}
+                {/* Foto yang diunggah pengunjung (maksimal 3, jika ada) */}
                 <div className="mb-5">
                     <p className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-2 mt-0">
                         Foto:
                     </p>
-                    {feedback.foto ? (
-                        <a
-                            href={resolveImageUrl(feedback.foto)}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Buka foto ukuran penuh">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={resolveImageUrl(feedback.foto)}
-                                alt="Foto dari pengunjung"
-                                className="max-h-56 rounded-xl border border-gray-700/60 object-cover"
-                            />
-                        </a>
+                    {feedback.fotos.length > 0 ? (
+                        <div className="flex flex-wrap gap-3">
+                            {feedback.fotos.map((foto) => (
+                                <a
+                                    key={foto}
+                                    href={resolveImageUrl(foto)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Buka foto ukuran penuh">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={resolveImageUrl(foto)}
+                                        alt="Foto dari pengunjung"
+                                        className="h-28 w-28 rounded-xl border border-gray-700/60 object-cover"
+                                    />
+                                </a>
+                            ))}
+                        </div>
                     ) : (
                         <span className="text-gray-400 text-sm">-</span>
                     )}

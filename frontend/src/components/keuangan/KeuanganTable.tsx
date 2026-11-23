@@ -58,6 +58,7 @@ const STATUS_STYLE: Record<string, { pil: string; titik: string }> = {
     berhasil: { pil: "text-[#00a814] bg-emerald-50", titik: "bg-[#00c918]" },
     pending: { pil: "text-amber-600 bg-amber-50", titik: "bg-amber-500" },
     gagal: { pil: "text-red-600 bg-red-50", titik: "bg-red-500" },
+    dibatalkan: { pil: "text-gray-600 bg-gray-100", titik: "bg-gray-400" },
 };
 
 function Pil({ teks }: { teks: string | null }) {
@@ -180,8 +181,7 @@ export default function KeuanganTable({
                                     </>
                                 )}
 
-                                <td
-                                    className={`${TD} font-semibold text-[13px]`}>
+                                <td className={`${TD} font-semibold text-[13px]`}>
                                     <StatusPil status={item.status} />
                                 </td>
                                 <td

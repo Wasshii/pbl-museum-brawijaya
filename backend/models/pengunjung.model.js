@@ -82,6 +82,17 @@ const Pengunjung = {
         return result.insertId;
     },
 
+    // Menautkan email / nomor telepon kedua ke akun (kolom lain tidak disentuh).
+    // true bila tersimpan; false bila kolom itu sudah terisi atau akunnya tidak ada.
+    tautkanKontak: async (id, jenis, kontak) => {
+        const kolom = jenis === "phone" ? "no_telp" : "email"; // daftar putih, bukan input pengguna
+        const [result] = await db.query(
+            `UPDATE pengunjung SET ${kolom} = ? WHERE id = ? AND ${kolom} IS NULL`,
+            [kontak, id],
+        );
+        return result.affectedRows > 0;
+    },
+
     // true jika akun masih ada
     tandaiAktif: async (id) => {
         const [result] = await db.query(

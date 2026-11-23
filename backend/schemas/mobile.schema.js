@@ -33,6 +33,24 @@ exports.kontakSchema = z
     .superRefine(cekFormatKontak)
     .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
 
+// Menautkan email / nomor ke akun yang sedang masuk (batas panjang: kunci kode verifikasi maksimal 100 karakter)
+exports.tautKontakSchema = z
+    .object({
+        contact_type: jenisKontak,
+        contact: kontakString.max(64, "Kontak terlalu panjang"),
+    })
+    .superRefine(cekFormatKontak)
+    .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
+
+exports.tautVerifikasiSchema = z
+    .object({
+        contact_type: jenisKontak,
+        contact: kontakString.max(64, "Kontak terlalu panjang"),
+        code: z.string().regex(/^\d{6}$/, "Kode harus 6 digit angka"),
+    })
+    .superRefine(cekFormatKontak)
+    .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
+
 exports.verifySchema = z.object({
     contact: kontakString.transform(rapikan),
     code: z.string().regex(/^\d{6}$/, "Kode harus 6 digit angka"),
@@ -96,4 +114,10 @@ exports.feedbackKirimSchema = z.object({
         .min(1, "Silakan rating kepuasan Anda")
         .max(5, "Rating maksimal 5"),
     review: z.string().trim().max(200, "Ulasan maksimal 200 karakter").optional().default(""),
+});
+
+// Alamat HP (token FCM) untuk notifikasi push
+exports.perangkatSchema = z.object({
+    token: z.string().trim().min(20, "Token tidak valid").max(255, "Token tidak valid"),
+    platform: z.enum(["android", "ios"]).optional().default("android"),
 });

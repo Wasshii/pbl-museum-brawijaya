@@ -1,13 +1,15 @@
 "use client";
 
 import { ArrowRight, Edit3, Trash2 } from "lucide-react";
+import Pagination, { type PaginationProps } from "@/components/ui/Pagination";
 import StatusBadge from "@/components/user/StatusBadge";
 import UserAvatar from "@/components/user/UserAvatar";
 import { tampilkan } from "@/lib/user";
 import type { User } from "@/types/user";
 
 interface Props {
-    users: User[];
+    users: User[]; // hanya baris di halaman aktif
+    pagination: PaginationProps;
     now: number; // untuk teks "Offline 5 menit lalu"
     isEditMode: boolean;
     onToggleEditMode: () => void;
@@ -21,6 +23,7 @@ const TH =
 
 export default function UserTable({
     users,
+    pagination,
     now,
     isEditMode,
     onToggleEditMode,
@@ -129,6 +132,8 @@ export default function UserTable({
                     </tbody>
                 </table>
             </div>
+
+            <Pagination {...pagination} satuan="user" />
         </div>
     );
 }

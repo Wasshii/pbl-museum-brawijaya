@@ -118,6 +118,17 @@ const Keuangan = {
         return result.affectedRows > 0;
     },
 
+    // Pengguna membatalkan pesanan dari aplikasi: Pending -> Dibatalkan.
+    // Hanya pesanan yang MASIH pending yang bisa dibatalkan (yang sudah dibayar tidak).
+    batalkan: async (id) => {
+        const [result] = await db.query(
+            `UPDATE keuangan SET status = 'Dibatalkan'
+             WHERE id = ? AND jenis = 'Pemasukan' AND status = 'Pending'`,
+            [id],
+        );
+        return result.affectedRows > 0;
+    },
+
     // Kode akses sah: transaksi berhasil, belum lewat 23:59, milik akun ini
     // (atau kode dari loket / admin yang tidak terikat akun mana pun).
     cekKodeAkses: async (kode, pengunjungId) => {

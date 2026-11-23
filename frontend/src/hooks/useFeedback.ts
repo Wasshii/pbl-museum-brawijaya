@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useToast } from "@/context/ToastContext";
 import { useCache } from "@/hooks/useCache";
+import { usePagination } from "@/hooks/usePagination";
 import { getErrorMessage } from "@/lib/api";
 import { CACHE_KEYS } from "@/lib/cache";
 import * as feedbackService from "@/services/feedback.service";
@@ -83,6 +84,18 @@ export function useFeedback() {
         });
     }, [feedbacks, searchQuery, statusFilter]);
 
+    // Maksimal 10 baris per halaman; cari / ganti filter status -> kembali ke halaman 1
+    const { dataHalaman, pagination, kePertama } =
+        usePagination(filteredFeedbacks);
+    const ubahSearch = (nilai: string) => {
+        setSearchQuery(nilai);
+        kePertama();
+    };
+    const ubahStatus = (nilai: StatusFilter) => {
+        setStatusFilter(nilai);
+        kePertama();
+    };
+
     const handleReplyClick = (item: FeedbackData) => {
         setSelectedFeedback(item);
         setReplyText(item.balasan || ""); // jika sudah ada balasan, tampilkan di input
@@ -127,14 +140,15 @@ export function useFeedback() {
     };
 
     return {
-        feedbacks: filteredFeedbacks,
+        feedbacks: dataHalaman, // hanya baris di halaman aktif
+        pagination,
         totalFeedbacks: feedbacks.length,
         loading,
         submitting,
         searchQuery,
-        setSearchQuery,
+        setSearchQuery: ubahSearch,
         statusFilter,
-        setStatusFilter,
+        setStatusFilter: ubahStatus,
         modalReplyOpen,
         handleCloseModal,
         selectedFeedback,

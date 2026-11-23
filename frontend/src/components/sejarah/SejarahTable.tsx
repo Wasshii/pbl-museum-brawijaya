@@ -31,7 +31,7 @@ export default function SejarahTable({
                             <th className={`${TH} text-center`}>
                                 Tanggal Di Update
                             </th>
-                            <th className={`${TH} text-center`}>Token</th>
+                            <th className={`${TH} text-center`}>Tahun</th>
                             <th className={`${TH} text-center`}>Detail</th>
                             <th className={`${TH} pr-6 text-center`}>Edit</th>
                         </tr>
@@ -52,8 +52,8 @@ export default function SejarahTable({
                                     {item.tanggal_update}
                                 </td>
                                 <td
-                                    className={`${TD} text-center text-gray-700 font-mono`}>
-                                    {item.token}
+                                    className={`${TD} text-center text-gray-700`}>
+                                    {item.tahun ?? "-"}
                                 </td>
                                 <td className={`${TD} text-center`}>
                                     <div className="flex justify-center">
