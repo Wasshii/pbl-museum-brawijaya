@@ -25,6 +25,7 @@ const LABEL_STATUS: Record<string, string> = {
     berhasil: "Sukses",
     pending: "Pending",
     gagal: "Gagal",
+    dibatalkan: "Dibatalkan", // dibatalkan pengguna di aplikasi mobile
 };
 export const labelStatus = (status: string) => LABEL_STATUS[status] ?? status;
 

@@ -13,8 +13,16 @@ import type { User } from "@/types/user";
 
 export default function DataUserPage() {
     // Data dan logika (cari, tambah, ubah, hapus) ada di hook
-    const { users, now, search, setSearch, addUser, editUser, removeUser } =
-        useUsers();
+    const {
+        users,
+        pagination,
+        now,
+        search,
+        setSearch,
+        addUser,
+        editUser,
+        removeUser,
+    } = useUsers();
 
     // State yang murni tampilan tetap di halaman
     const [isEditMode, setIsEditMode] = useState(false);
@@ -47,6 +55,7 @@ export default function DataUserPage() {
 
             <UserTable
                 users={users}
+                pagination={pagination}
                 now={now}
                 isEditMode={isEditMode}
                 onToggleEditMode={() => setIsEditMode((prev) => !prev)}

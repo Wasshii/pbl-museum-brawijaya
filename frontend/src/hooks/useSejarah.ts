@@ -55,27 +55,29 @@ export function useSejarah() {
     const [formData, setFormData] = useState<KoleksiFormValues>({
         nama: "",
         jenis: "",
-        token: "",
+        tahun: "",
         deskripsi: "",
+        identitas: "",
         gambar: "",
         fileGambar: null,
         previewGambar: "",
     });
 
-    // REVISI: Pencarian sekarang mencakup Nama ATAU Token
+    // Pencarian: nama atau jenis benda
     const filteredKoleksi = koleksi.filter(
         (item) =>
             item.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.token.toLowerCase().includes(searchQuery.toLowerCase()),
+            item.jenis.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     const handleAdd = () => {
         setIsEdit(false);
         setFormData({
             nama: "",
-            jenis: "", // BARU: diisi admin lewat input Jenis Benda
-            token: `TKN-${Math.floor(1000 + Math.random() * 9000)}`, // usulan token, boleh diubah
+            jenis: "", // dipilih admin dari daftar kategori
+            tahun: "",
             deskripsi: "",
+            identitas: "",
             gambar: "",
             fileGambar: null,
             previewGambar: "",
@@ -89,8 +91,9 @@ export function useSejarah() {
         setFormData({
             nama: item.nama,
             jenis: item.jenis,
-            token: item.token,
+            tahun: item.tahun ? String(item.tahun) : "",
             deskripsi: item.deskripsi,
+            identitas: item.identitas ?? "",
             gambar: item.gambar || "",
             fileGambar: null,
             previewGambar: "",
@@ -130,7 +133,7 @@ export function useSejarah() {
             setModalFormOpen(false);
             fetchKoleksi(); // ambil ulang, cache koleksi ikut diperbarui
         } catch (error) {
-            // REVISI: tampilkan pesan asli dari backend (token kembar, ukuran gambar, dll)
+            // Tampilkan pesan asli dari backend (ukuran gambar, isian kurang, dll)
             notify({
                 type: "error",
                 title: "Gagal",

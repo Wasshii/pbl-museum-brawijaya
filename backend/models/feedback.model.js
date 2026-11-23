@@ -17,6 +17,11 @@ const Feedback = {
         );
     },
 
+    findById: async (id) => {
+        const [rows] = await db.query("SELECT * FROM feedback WHERE id = ?", [id]);
+        return rows[0] || null;
+    },
+
     // ---------- aplikasi mobile ----------
     // Sudah mengirim ulasan hari ini? (hari kalender, jam database)
     sudahKirimHariIni: async (pengunjungId) => {

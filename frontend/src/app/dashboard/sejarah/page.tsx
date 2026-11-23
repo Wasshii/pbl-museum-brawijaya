@@ -42,7 +42,7 @@ export default function SejarahPage() {
                     <SearchInput
                         value={searchQuery}
                         onChange={(val) => setSearchQuery(val)}
-                        placeholder="Cari Berdasarkan Token / Nama Benda"
+                        placeholder="Cari Berdasarkan Nama / Jenis Benda"
                     />
                 </div>
 

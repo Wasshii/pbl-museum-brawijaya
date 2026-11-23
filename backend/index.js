@@ -16,7 +16,13 @@ const mobileRoutes = require("./routes/mobile.routes");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN }));
+// CORS_ORIGIN boleh berisi lebih dari satu alamat, dipisah koma. Contoh:
+//   CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+const asalDiizinkan = (process.env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+app.use(cors({ origin: asalDiizinkan.length > 1 ? asalDiizinkan : asalDiizinkan[0] }));
 app.use(express.json());
 
 // --- Tambahan sesuai instruksi ---

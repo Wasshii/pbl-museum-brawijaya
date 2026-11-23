@@ -42,18 +42,30 @@ export default function SejarahDetailModal({ isOpen, onClose, item }: Props) {
             </h2>
             <span className="inline-block bg-gray-100 text-gray-700 text-[12px] font-bold px-3 py-1 rounded-full mb-4">
                 {item.jenis}
+                {item.tahun ? ` • ${item.tahun}` : ""}
             </span>
+
+            <p className="text-[11px] text-gray-400 font-bold uppercase mb-1">
+                Sejarah (Cerita)
+            </p>
             <p className="text-[14px] text-gray-600 font-medium leading-relaxed mb-4 whitespace-pre-wrap">
                 {item.deskripsi}
+            </p>
+
+            <p className="text-[11px] text-gray-400 font-bold uppercase mb-1">
+                Identitas
+            </p>
+            <p className="text-[14px] text-gray-600 font-medium leading-relaxed mb-4 whitespace-pre-wrap">
+                {item.identitas || "-"}
             </p>
 
             <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 flex justify-between items-center">
                 <div>
                     <p className="text-[11px] text-gray-400 font-bold uppercase">
-                        Token
+                        Tahun
                     </p>
                     <p className="font-bold text-black text-[14px]">
-                        {item.token}
+                        {item.tahun ?? "-"}
                     </p>
                 </div>
                 <div className="text-right">

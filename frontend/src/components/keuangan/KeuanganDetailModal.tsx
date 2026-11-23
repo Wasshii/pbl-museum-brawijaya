@@ -16,6 +16,7 @@ const WARNA_STATUS: Record<string, string> = {
     berhasil: "text-[#00c918]",
     pending: "text-amber-600",
     gagal: "text-red-600",
+    dibatalkan: "text-gray-500",
 };
 
 function Baris({

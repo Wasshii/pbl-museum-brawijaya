@@ -1,5 +1,7 @@
 const db = require("../config/db");
 
+// Kolom: nama, jenis (kategori), tahun, deskripsi (= sejarah / "Cerita" di aplikasi),
+// identitas ("Identitas" di aplikasi), gambar.
 const Koleksi = {
     getAll: async () => {
         const [rows] = await db.query(
@@ -7,7 +9,7 @@ const Koleksi = {
         );
         return rows;
     },
-    // BARU: dipakai untuk mengetahui gambar lama saat ubah/hapus
+    // Dipakai untuk mengetahui gambar lama saat ubah/hapus
     getById: async (id) => {
         const [rows] = await db.query("SELECT * FROM koleksi WHERE id = ?", [
             id,
@@ -16,19 +18,27 @@ const Koleksi = {
     },
     create: async (data) => {
         const [result] = await db.query(
-            "INSERT INTO koleksi (nama, jenis, token, deskripsi, gambar) VALUES (?, ?, ?, ?, ?)",
-            [data.nama, data.jenis, data.token, data.deskripsi, data.gambar],
+            "INSERT INTO koleksi (nama, jenis, tahun, deskripsi, identitas, gambar) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                data.nama,
+                data.jenis,
+                data.tahun ?? null,
+                data.deskripsi,
+                data.identitas,
+                data.gambar,
+            ],
         );
         return result.insertId;
     },
     update: async (id, data) => {
         await db.query(
-            "UPDATE koleksi SET nama = ?, jenis = ?, token = ?, deskripsi = ?, gambar = ? WHERE id = ?",
+            "UPDATE koleksi SET nama = ?, jenis = ?, tahun = ?, deskripsi = ?, identitas = ?, gambar = ? WHERE id = ?",
             [
                 data.nama,
                 data.jenis,
-                data.token,
+                data.tahun ?? null,
                 data.deskripsi,
+                data.identitas,
                 data.gambar,
                 id,
             ],

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/context/ToastContext";
 import { useCache } from "@/hooks/useCache";
+import { usePagination } from "@/hooks/usePagination";
 import { CACHE_KEYS, removeCache } from "@/lib/cache";
 import * as userService from "@/services/user.service";
 import type { User, UserEditValues, UserFormValues } from "@/types/user";
@@ -48,6 +49,13 @@ export function useUsers() {
         );
     }, [users, search]);
 
+    // Maksimal 10 baris per halaman; pencarian baru -> kembali ke halaman 1
+    const { dataHalaman, pagination, kePertama } = usePagination(filteredUsers);
+    const ubahSearch = (nilai: string) => {
+        setSearch(nilai);
+        kePertama();
+    };
+
     const addUser = async (values: UserFormValues) => {
         const created = await userService.createUser(values);
         update((prev) => [created, ...prev]);
@@ -89,11 +97,12 @@ export function useUsers() {
     };
 
     return {
-        users: filteredUsers,
+        users: dataHalaman, // hanya baris di halaman aktif
+        pagination,
         loading,
         now,
         search,
-        setSearch,
+        setSearch: ubahSearch,
         addUser,
         editUser,
         removeUser,

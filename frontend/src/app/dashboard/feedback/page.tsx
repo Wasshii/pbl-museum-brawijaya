@@ -7,6 +7,7 @@ import { useFeedback, STATUS_FILTERS } from "@/hooks/useFeedback";
 export default function FeedbackPage() {
     const {
         feedbacks,
+        pagination,
         totalFeedbacks,
         loading,
         submitting,
@@ -60,6 +61,7 @@ export default function FeedbackPage() {
             ) : (
                 <FeedbackTable
                     feedbacks={feedbacks}
+                    pagination={pagination}
                     onReply={handleReplyClick}
                 />
             )}

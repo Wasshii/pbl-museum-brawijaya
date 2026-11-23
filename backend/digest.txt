@@ -4,8 +4,12 @@ Directory structure:
     ├── package.json
     ├── .env.example
     ├── config/
+    │   ├── akses.js
     │   ├── db.js
+    │   ├── firebase.js
     │   ├── pencairan.js
+    │   ├── penyedia.js
+    │   ├── presence.js
     │   └── tarif.js
     ├── controllers/
     │   ├── auth.controller.js
@@ -13,12 +17,14 @@ Directory structure:
     │   ├── feedback.controller.js
     │   ├── keuangan.controller.js
     │   ├── koleksi.controller.js
+    │   ├── mobile.controller.js
     │   └── pengunjung.controller.js
     ├── lib/
     │   └── jwt.js
     ├── middleware/
     │   ├── auth.middleware.js
     │   ├── upload.middleware.js
+    │   ├── uploadFeedback.middleware.js
     │   └── validate.middleware.js
     ├── models/
     │   ├── dashboard.model.js
@@ -26,20 +32,26 @@ Directory structure:
     │   ├── keuangan.model.js
     │   ├── koleksi.model.js
     │   ├── pengunjung.model.js
-    │   └── user.model.js
+    │   ├── perangkat.model.js
+    │   ├── user.model.js
+    │   └── verifikasi.model.js
     ├── routes/
     │   ├── auth.routes.js
     │   ├── dashboard.routes.js
     │   ├── feedback.routes.js
     │   ├── keuangan.routes.js
     │   ├── koleksi.routes.js
+    │   ├── mobile.routes.js
     │   └── pengunjung.routes.js
-    └── schemas/
-        ├── auth.schema.js
-        ├── feedback.schema.js
-        ├── keuangan.schema.js
-        ├── koleksi.schema.js
-        └── pengunjung.schema.js
+    ├── schemas/
+    │   ├── auth.schema.js
+    │   ├── feedback.schema.js
+    │   ├── keuangan.schema.js
+    │   ├── koleksi.schema.js
+    │   ├── mobile.schema.js
+    │   └── pengunjung.schema.js
+    └── services/
+        └── push.js
 
 ================================================
 FILE: index.js
@@ -54,6 +66,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const keuanganRoutes = require("./routes/keuangan.routes");
 const pengunjungRoutes = require("./routes/pengunjung.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
+const mobileRoutes = require("./routes/mobile.routes");
 
 // (Baris 11 dihapus jika User sudah tidak dipakai di bawah)
 // const User = require("./models/user.model");
@@ -61,7 +74,13 @@ const feedbackRoutes = require("./routes/feedback.routes");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors({ origin: process.env.CORS_ORIGIN }));
+// CORS_ORIGIN boleh berisi lebih dari satu alamat, dipisah koma. Contoh:
+//   CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+const asalDiizinkan = (process.env.CORS_ORIGIN ?? "")
+    .split(",")
+    .map((a) => a.trim())
+    .filter(Boolean);
+app.use(cors({ origin: asalDiizinkan.length > 1 ? asalDiizinkan : asalDiizinkan[0] }));
 app.use(express.json());
 
 // --- Tambahan sesuai instruksi ---
@@ -76,6 +95,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/keuangan", keuanganRoutes);
 app.use("/api/pengunjung", pengunjungRoutes);
 app.use("/api/feedback", feedbackRoutes);
+app.use("/api/mobile", mobileRoutes); // aplikasi Flutter: daftar akun + status online
 
 app.listen(PORT, () => {
     console.log(`Server Backend berjalan di http://localhost:${PORT}`);
@@ -106,6 +126,7 @@ FILE: package.json
         "dotenv": "^18.0.9",
         "express": "^5.2.1",
         "express-validator": "^7.3.2",
+        "firebase-admin": "^14.5.1",
         "jsonwebtoken": "^9.0.3",
         "multer": "^2.5.0",
         "mysql2": "^3.24.5",
@@ -133,6 +154,35 @@ ADMIN_PASSWORD=isi_dengan_password_bebas
 
 
 ================================================
+FILE: config/akses.js
+================================================
+const crypto = require("crypto");
+
+// Kode akses tiket: 10 karakter, pasti ada huruf besar, huruf kecil, dan angka
+// (huruf/angka yang mirip seperti O/0 dan l/1 sengaja tidak dipakai).
+const BESAR = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const KECIL = "abcdefghijkmnopqrstuvwxyz";
+const ANGKA = "23456789";
+const SEMUA = BESAR + KECIL + ANGKA;
+
+const ambil = (set) => set[crypto.randomInt(0, set.length)];
+
+const buatKodeAkses = () => {
+    const huruf = [ambil(BESAR), ambil(KECIL), ambil(ANGKA)];
+    while (huruf.length < 10) huruf.push(ambil(SEMUA));
+    // Acak urutan supaya 3 karakter pertama tidak selalu besar-kecil-angka
+    for (let i = huruf.length - 1; i > 0; i--) {
+        const j = crypto.randomInt(0, i + 1);
+        [huruf[i], huruf[j]] = [huruf[j], huruf[i]];
+    }
+    return huruf.join("");
+};
+
+module.exports = { buatKodeAkses };
+
+
+
+================================================
 FILE: config/db.js
 ================================================
 const mysql = require("mysql2/promise");
@@ -149,15 +199,165 @@ module.exports = db;
 
 
 ================================================
+FILE: config/firebase.js
+================================================
+// Pengiriman notifikasi push lewat Firebase Cloud Messaging (FCM).
+// Rahasia TIDAK ditulis di kode: letak file kunci akun layanan dibaca dari .env
+//   FIREBASE_SERVICE_ACCOUNT=./firebase-service-account.json
+// Jika belum diatur / paket firebase-admin belum dipasang, notifikasi dilewati (backend tetap jalan).
+
+const path = require("path");
+
+let messaging = null;
+
+const ambilMessaging = () => {
+    if (messaging) return messaging;
+
+    const berkas = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!berkas) {
+        console.warn("[PUSH] FIREBASE_SERVICE_ACCOUNT belum diatur di .env: notifikasi push dimatikan.");
+        return null;
+    }
+    try {
+        // Impor modular: berlaku untuk firebase-admin versi 10 ke atas (npm install firebase-admin)
+        const { initializeApp, cert, getApps } = require("firebase-admin/app");
+        const { getMessaging } = require("firebase-admin/messaging");
+        const akun = require(path.resolve(berkas));
+        const app = getApps().length > 0 ? getApps()[0] : initializeApp({ credential: cert(akun) });
+        messaging = getMessaging(app);
+        console.log("[PUSH] Firebase siap.");
+    } catch (error) {
+        // Tidak dicatat "sudah dicoba": setelah file / paket diperbaiki, balasan berikutnya langsung memakainya
+        console.error("[PUSH] Firebase gagal dimulai:", error.message);
+    }
+    return messaging;
+};
+
+const TOKEN_MATI = new Set([
+    "messaging/registration-token-not-registered",
+    "messaging/invalid-registration-token",
+]);
+
+// tokens: daftar token FCM. Mengembalikan { terkirim, mati } (mati = token yang sudah tidak berlaku).
+const kirimPush = async (tokens, { title, body, data }) => {
+    const m = ambilMessaging();
+    if (!m || tokens.length === 0) return { terkirim: 0, mati: [] };
+
+    const hasil = await m.sendEachForMulticast({
+        tokens,
+        notification: { title, body },
+        data: data ?? {},
+        android: { priority: "high", notification: { channelId: "ulasan" } },
+    });
+
+    const mati = [];
+    hasil.responses.forEach((r, i) => {
+        if (!r.success) {
+            console.error("[PUSH] Gagal ke satu HP:", r.error?.code, r.error?.message);
+            if (TOKEN_MATI.has(r.error?.code)) mati.push(tokens[i]);
+        }
+    });
+    console.log(`[PUSH] Terkirim ${hasil.successCount} dari ${tokens.length} HP.`);
+    return { terkirim: hasil.successCount, mati };
+};
+
+module.exports = { kirimPush };
+
+
+
+================================================
 FILE: config/pencairan.js
 ================================================
 // Batas total pencairan per bulan kalender (simulasi).
 // Dihitung dari semua pencairan berstatus Berhasil pada bulan berjalan,
 // dan kembali ke nol setiap tanggal 1. Ubah angka di sini kalau batasnya berubah.
 // Patokan besaran: batas transaksi bulanan uang elektronik Bank Indonesia (Rp 20 juta).
-const BATAS_PENCAIRAN_PER_BULAN = 20000000;
+const BATAS_PENCAIRAN_PER_BULAN = 40000000;
 
 module.exports = { BATAS_PENCAIRAN_PER_BULAN };
+
+
+
+================================================
+FILE: config/penyedia.js
+================================================
+// Daftar bank & e-wallet tujuan pencairan (simulasi), satu sumber untuk backend dan web.
+// Dikirim ke frontend lewat GET /api/keuangan, jadi frontend tidak perlu menyalin daftar ini.
+// Ubah di sini kalau ada bank/e-wallet yang ditambah atau panjang rekeningnya berubah.
+
+const bank = (id, nama, digit, contoh) => ({
+    id,
+    nama,
+    digitMin: digit, // rekening bank: panjang harus tepat
+    digitMax: digit,
+    contoh,
+});
+
+const ewallet = (id, nama) => ({
+    id,
+    nama,
+    digitMin: 10, // nomor HP: 10-13 digit
+    digitMax: 13,
+    contoh: "081234567890",
+});
+
+const DAFTAR_PENYEDIA = {
+    bank: [
+        bank("BCA", "Bank Central Asia (BCA)", 10, "1234567890"),
+        bank("BRI", "Bank Rakyat Indonesia (BRI)", 15, "123401000123501"),
+        bank("BNI", "Bank Negara Indonesia (BNI)", 10, "0123456789"),
+        bank("Mandiri", "Bank Mandiri", 13, "1230004567890"),
+        bank("BSI", "Bank Syariah Indonesia (BSI)", 10, "7123456789"),
+        bank("CIMB", "CIMB Niaga", 13, "7012345678000"),
+        bank("Danamon", "Bank Danamon", 10, "0036123456"),
+        bank("Permata", "Bank Permata", 10, "4001234567"),
+    ],
+    eWallet: [
+        ewallet("GoPay", "GoPay"),
+        ewallet("OVO", "OVO"),
+        ewallet("DANA", "DANA"),
+        ewallet("ShopeePay", "ShopeePay"),
+        ewallet("LinkAja", "LinkAja"),
+    ],
+};
+
+// jenis = "Bank" | "E-Wallet"; mengembalikan null kalau id tidak ada di daftar
+const cariPenyedia = (jenis, id) => {
+    const daftar =
+        jenis === "Bank" ? DAFTAR_PENYEDIA.bank : DAFTAR_PENYEDIA.eWallet;
+    return daftar.find((p) => p.id === id) ?? null;
+};
+
+// Mengembalikan pesan error, atau null kalau nomor sudah sesuai aturan penyedia
+const pesanRekening = (jenis, penyedia, angka) => {
+    if (jenis === "Bank") {
+        return angka.length === penyedia.digitMin
+            ? null
+            : `Nomor rekening ${penyedia.id} harus tepat ${penyedia.digitMin} digit angka`;
+    }
+    if (!angka.startsWith("08")) {
+        return `Nomor HP ${penyedia.nama} harus diawali 08`;
+    }
+    return angka.length >= penyedia.digitMin &&
+        angka.length <= penyedia.digitMax
+        ? null
+        : `Nomor HP ${penyedia.nama} harus ${penyedia.digitMin}-${penyedia.digitMax} digit`;
+};
+
+module.exports = { DAFTAR_PENYEDIA, cariPenyedia, pesanRekening };
+
+
+
+================================================
+FILE: config/presence.js
+================================================
+// Aplikasi mobile mengirim "heartbeat" tiap HEARTBEAT_DETIK selama aplikasi dibuka.
+// Jika heartbeat terakhir lebih lama dari BATAS_ONLINE_DETIK (aplikasi ditutup paksa,
+// HP mati, sinyal hilang), pengunjung otomatis dianggap Offline.
+const HEARTBEAT_DETIK = 60;
+const BATAS_ONLINE_DETIK = 150; // 2 kali heartbeat + toleransi jaringan
+
+module.exports = { HEARTBEAT_DETIK, BATAS_ONLINE_DETIK };
 
 
 
@@ -328,6 +528,8 @@ exports.getDashboardStats = async (req, res) => {
 FILE: controllers/feedback.controller.js
 ================================================
 const Feedback = require("../models/feedback.model");
+const { kirimNotifikasiBalasan } = require("../services/push");
+const { parseFoto } = require("../middleware/uploadFeedback.middleware");
 
 exports.getSemuaFeedback = async (req, res) => {
     try {
@@ -338,8 +540,9 @@ exports.getSemuaFeedback = async (req, res) => {
             id: item.id,
             nama_user: item.nama,
             rating: item.rating,
-            komentar: item.ulasan,
-            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
+            komentar: item.ulasan, // bisa kosong (ulasan teks bersifat opsional)
+            fotos: parseFoto(item.foto), // 0-3 foto, mis. "/uploads/feedback/xxx.jpg"
+            // Format tanggal lokal (YYYY-MM-DD)
             tanggal: new Date(item.tanggal).toLocaleDateString("sv-SE"),
             balasan: item.balasan_admin || null,
         }));
@@ -359,6 +562,12 @@ exports.balasFeedback = async (req, res) => {
         const { replyText } = req.body;
         await Feedback.reply(req.params.id, replyText);
         res.json({ success: true, message: "Balasan berhasil dikirim" });
+
+        // Notifikasi ke HP pengguna dikirim SETELAH respons ke admin (tidak menahan admin).
+        // Kegagalan notifikasi hanya dicatat di log; balasan tetap tersimpan.
+        kirimNotifikasiBalasan(req.params.id, replyText).catch((e) =>
+            console.error("[PUSH] Gagal mengirim notifikasi:", e.message),
+        );
     } catch (error) {
         console.error("[FEEDBACK ERROR]", error);
         res.status(500).json({
@@ -379,6 +588,8 @@ const {
     BIAYA_PEMANDU,
     hitungNominal,
 } = require("../config/tarif");
+const { DAFTAR_PENYEDIA } = require("../config/penyedia");
+const { buatKodeAkses } = require("../config/akses");
 
 // Isi Saldo lewat web admin = bayar tunai di loket (dibantu staff).
 // Pembayaran non tunai nanti datang dari aplikasi mobile.
@@ -399,7 +610,10 @@ const formatTransaksi = (item) => ({
     jenisTiket: item.jenis_tiket,
     jenisPembayaran: item.jenis_pembayaran,
     jenisPencairan: item.jenis_pencairan,
+    penyedia: item.penyedia_pencairan, // nama bank / e-wallet tujuan
     noRekening: item.no_rekening,
+    kodeAkses: item.kode_akses, // null = bukan transaksi tiket
+    aksesKedaluwarsa: Boolean(item.akses_kedaluwarsa), // true = lewat 23:59
 });
 
 exports.getSemuaKeuangan = async (req, res) => {
@@ -416,6 +630,7 @@ exports.getSemuaKeuangan = async (req, res) => {
             summary, // { totalPemasukan, totalPengeluaran, saldo }
             tarif: { hargaTiket: HARGA_TIKET, biayaPemandu: BIAYA_PEMANDU },
             batasPencairan, // { maksimumPerBulan, terpakaiBulanIni, sisa }
+            penyedia: DAFTAR_PENYEDIA, // { bank: [...], eWallet: [...] }
         });
     } catch (error) {
         console.error("[KEUANGAN ERROR]", error);
@@ -444,6 +659,8 @@ exports.tambahKeuangan = async (req, res) => {
                 jumlahTiket: b.jumlahTiket,
                 jenisTiket: b.jenisTiket,
                 jenisPembayaran: PEMBAYARAN_WEB_ADMIN,
+                // Kode akses otomatis; admin memberikannya ke pengunjung untuk dipakai di aplikasi
+                kodeAkses: buatKodeAkses(),
             });
             message = "Saldo berhasil ditambahkan";
         } else {
@@ -452,9 +669,11 @@ exports.tambahKeuangan = async (req, res) => {
                 jenis: "Pengeluaran",
                 nominal,
                 keterangan:
-                    b.deskripsi || `Pencairan dana ke ${b.jenisPencairan}`,
+                    b.deskripsi ||
+                    `Pencairan dana ke ${b.jenisPencairan} - ${b.penyedia}`,
                 nama: b.nama,
                 jenisPencairan: b.jenisPencairan,
+                penyediaPencairan: b.penyedia,
                 noRekening: b.noRekening,
             });
             message = "Pencairan berhasil diproses";
@@ -478,6 +697,26 @@ exports.tambahKeuangan = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Gagal menyimpan transaksi keuangan",
+        });
+    }
+};
+
+// Admin menyetujui pembayaran TUNAI dari aplikasi mobile (Pending -> Berhasil)
+exports.konfirmasiPembayaran = async (req, res) => {
+    try {
+        const ok = await Keuangan.konfirmasi(req.params.id);
+        if (!ok) {
+            return res.status(404).json({
+                success: false,
+                message: "Transaksi tidak ditemukan atau sudah dikonfirmasi",
+            });
+        }
+        res.json({ success: true, message: "Pembayaran dikonfirmasi" });
+    } catch (error) {
+        console.error("[KEUANGAN ERROR]", error);
+        res.status(500).json({
+            success: false,
+            message: "Gagal mengonfirmasi pembayaran",
         });
     }
 };
@@ -591,32 +830,564 @@ exports.hapusKoleksi = async (req, res) => {
 
 
 ================================================
+FILE: controllers/mobile.controller.js
+================================================
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const Pengunjung = require("../models/pengunjung.model");
+const Verifikasi = require("../models/verifikasi.model");
+const Keuangan = require("../models/keuangan.model");
+const Feedback = require("../models/feedback.model");
+const Perangkat = require("../models/perangkat.model");
+const {
+    hapusFileFoto,
+    parseFoto,
+    PUBLIC_PREFIX,
+} = require("../middleware/uploadFeedback.middleware");
+const { feedbackKirimSchema } = require("../schemas/mobile.schema");
+const { createVisitorToken } = require("../lib/jwt");
+const { hitungNominal } = require("../config/tarif");
+const { buatKodeAkses } = require("../config/akses");
+
+const cariKontak = (jenis, kontak) =>
+    jenis === "phone"
+        ? Pengunjung.findByPhone(kontak)
+        : Pengunjung.findByEmail(kontak);
+
+const pesanTerpakai = (jenis) =>
+    jenis === "phone"
+        ? "Nomor telepon sudah terdaftar"
+        : "Email sudah terdaftar";
+
+// Format error seragam; "code" dipakai aplikasi mobile untuk memilih teks yang tampil
+const gagal = (res, status, code, message) =>
+    res.status(status).json({ success: false, code, message });
+
+const galatServer = (res, label, error) => {
+    console.error(label, error);
+    res.status(500).json({
+        success: false,
+        code: "server_error",
+        message: "Terjadi kesalahan server",
+    });
+};
+
+// Apakah email / nomor ini sudah terdaftar?
+exports.contactExists = async (req, res) => {
+    try {
+        const { contact_type, contact } = req.body;
+        const row = await cariKontak(contact_type, contact);
+        res.json({ success: true, exists: Boolean(row) });
+    } catch (error) {
+        galatServer(res, "[MOBILE contactExists]", error);
+    }
+};
+
+// Buat kode 6 digit. Pengiriman email / SMS masih simulasi: kode tampil di terminal backend.
+exports.sendCode = async (req, res) => {
+    try {
+        const { contact_type, contact } = req.body;
+        if (await cariKontak(contact_type, contact)) {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
+        }
+
+        const code = crypto.randomInt(100000, 1000000).toString();
+        await Verifikasi.simpanKode(contact, code);
+        console.log(`[SIMULASI KODE DAFTAR] ${contact} -> ${code}`);
+
+        res.json({ success: true, message: "Kode verifikasi dikirim" });
+    } catch (error) {
+        galatServer(res, "[MOBILE sendCode]", error);
+    }
+};
+
+exports.verifyCode = async (req, res) => {
+    try {
+        const { contact, code } = req.body;
+        if (!(await Verifikasi.cekKode(contact, code))) {
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
+        }
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE verifyCode]", error);
+    }
+};
+
+// Buat akun baru -> otomatis muncul di menu Data User (web admin) dan langsung Online
+exports.register = async (req, res) => {
+    try {
+        const { name, contact_type, contact, password, code } = req.body;
+
+        // Kode dicek ulang di sini supaya endpoint ini tidak bisa dipakai tanpa verifikasi
+        if (!(await Verifikasi.cekKode(contact, code))) {
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
+        }
+        if (await cariKontak(contact_type, contact)) {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
+        }
+
+        const isPhone = contact_type === "phone";
+        const email = isPhone ? null : contact;
+        const phone = isPhone ? contact : null;
+
+        const id = await Pengunjung.createMobile({
+            nama: name,
+            email,
+            noTelp: phone,
+            passwordHash: await bcrypt.hash(password, 10),
+        });
+        await Verifikasi.hapus(contact);
+
+        res.status(201).json({
+            success: true,
+            token: createVisitorToken({ id }),
+            user: { id: String(id), name, email, phone },
+        });
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(req.body.contact_type),
+            );
+        }
+        galatServer(res, "[MOBILE register]", error);
+    }
+};
+
+// Dipanggil aplikasi tiap ~60 detik selama dibuka -> status Online
+exports.heartbeat = async (req, res) => {
+    try {
+        const ditemukan = await Pengunjung.tandaiAktif(req.user.id);
+        if (!ditemukan) {
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE heartbeat]", error);
+    }
+};
+
+// Dipanggil saat Log Out / aplikasi ke latar belakang -> langsung Offline
+exports.goOffline = async (req, res) => {
+    try {
+        await Pengunjung.tandaiOffline(req.user.id);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE offline]", error);
+    }
+};
+
+// =====================================================================
+// LOGIN: email / nomor + password -> kode verifikasi -> token
+// =====================================================================
+const kunciLogin = (kontak) => `login:${kontak}`;
+
+// Langkah 1: cek password. Kalau benar, kirim kode (simulasi: tampil di terminal backend).
+// Pesan salah dibuat sama untuk "akun tidak ada" dan "password salah".
+exports.login = async (req, res) => {
+    try {
+        const { contact_type, contact, password } = req.body;
+        const akun = await Pengunjung.findLogin(contact_type, contact);
+        const cocok =
+            akun?.password_hash &&
+            (await bcrypt.compare(password, akun.password_hash));
+        if (!cocok) {
+            return gagal(
+                res,
+                401,
+                "invalid_credentials",
+                "Email / nomor telepon atau password salah",
+            );
+        }
+
+        const code = crypto.randomInt(100000, 1000000).toString();
+        await Verifikasi.simpanKode(kunciLogin(contact), code);
+        console.log(`[SIMULASI KODE LOGIN] ${contact} -> ${code}`);
+
+        res.json({ success: true, message: "Kode verifikasi dikirim" });
+    } catch (error) {
+        galatServer(res, "[MOBILE login]", error);
+    }
+};
+
+// Langkah 2: cek kode. Kalau benar, akun masuk (token dikirim) dan langsung Online.
+exports.loginVerify = async (req, res) => {
+    try {
+        const { contact, code } = req.body;
+        if (!(await Verifikasi.cekKode(kunciLogin(contact), code))) {
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
+        }
+
+        const akun = await Pengunjung.findLogin(
+            contact.includes("@") ? "email" : "phone",
+            contact,
+        );
+        if (!akun) {
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+
+        await Verifikasi.hapus(kunciLogin(contact));
+        await Pengunjung.tandaiAktif(akun.id);
+
+        res.json({
+            success: true,
+            token: createVisitorToken({ id: akun.id }),
+            user: {
+                id: String(akun.id),
+                name: akun.nama,
+                email: akun.email,
+                phone: akun.no_telp,
+            },
+        });
+    } catch (error) {
+        galatServer(res, "[MOBILE loginVerify]", error);
+    }
+};
+
+// =====================================================================
+// PESANAN TIKET (disimpan di tabel keuangan -> otomatis muncul di Uang Masuk web)
+// =====================================================================
+const TYPE_KEY = { Mandiri: "booking_title", Guide: "guide_title" };
+
+const orderJson = (r) => ({
+    user_id: String(r.pengunjung_id),
+    type_key: TYPE_KEY[r.jenis_tiket] ?? "booking_title",
+    count: r.jumlah_tiket,
+    pay: r.jenis_pembayaran === "QRIS" ? "qr" : "cash",
+    total: Number(r.nominal),
+    name: r.nama,
+    created_at: new Date(r.tanggal).toISOString(),
+    access_code: r.kode_akses,
+    transaction_id: r.id_trx,
+    status:
+        r.status === "Berhasil"
+            ? "paid"
+            : r.status === "Dibatalkan"
+              ? "cancelled"
+              : r.status === "Gagal"
+                ? "failed"
+                : "pending",
+    access_expires_at: r.kedaluwarsa_akses
+        ? new Date(r.kedaluwarsa_akses).toISOString()
+        : null,
+});
+
+// Pesanan milik akun yang sedang masuk (atau null bila bukan miliknya)
+const pesananMilik = async (idTrx, pengunjungId) => {
+    const row = await Keuangan.findByTrx(idTrx);
+    return row && row.pengunjung_id === pengunjungId ? row : null;
+};
+
+exports.createOrder = async (req, res) => {
+    try {
+        const { type_key, count, pay } = req.body;
+        const akun = await Pengunjung.findById(req.user.id);
+        if (!akun) {
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+
+        const jenisTiket = type_key === "guide_title" ? "Guide" : "Mandiri";
+        const hasil = await Keuangan.createPesanan({
+            jenis: "Pemasukan",
+            nominal: hitungNominal(count, jenisTiket),
+            keterangan: `Pemesanan tiket ${jenisTiket} (aplikasi mobile) - ${akun.nama}`,
+            nama: akun.nama,
+            jumlahTiket: count,
+            jenisTiket,
+            jenisPembayaran: pay === "qr" ? "QRIS" : "Tunai",
+            // QRIS menunggu simulasi bayar, Tunai menunggu konfirmasi admin di web
+            status: "Pending",
+            pengunjungId: akun.id,
+            kodeAkses: buatKodeAkses(),
+        });
+
+        const row = await Keuangan.findByTrx(hasil.idTrx);
+        res.status(201).json({ success: true, order: orderJson(row) });
+    } catch (error) {
+        galatServer(res, "[MOBILE createOrder]", error);
+    }
+};
+
+// Simulasi pembayaran QRIS berhasil (aplikasi memanggilnya setelah jeda).
+// Tunai TIDAK bisa lewat sini; harus dikonfirmasi admin di web.
+exports.payOrder = async (req, res) => {
+    try {
+        const row = await pesananMilik(req.params.trx, req.user.id);
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        if (row.jenis_pembayaran !== "QRIS") {
+            return gagal(
+                res,
+                403,
+                "cash_needs_admin",
+                "Pembayaran tunai dikonfirmasi oleh admin",
+            );
+        }
+        if (row.status === "Pending") {
+            await Keuangan.konfirmasi(row.id);
+        }
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE payOrder]", error);
+    }
+};
+
+// Pengguna menekan Cancel di halaman pembayaran: status pesanan menjadi "Dibatalkan"
+// (tetap tercatat sebagai bukti, tidak dihitung sebagai pemasukan, kode aksesnya tidak berlaku).
+exports.cancelOrder = async (req, res) => {
+    try {
+        const row = await pesananMilik(req.params.trx, req.user.id);
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        if (row.status === "Berhasil") {
+            return gagal(
+                res,
+                409,
+                "already_paid",
+                "Pesanan sudah dibayar dan tidak bisa dibatalkan",
+            );
+        }
+        if (row.status === "Pending") await Keuangan.batalkan(row.id);
+        res.json({ success: true }); // sudah dibatalkan sebelumnya juga dianggap berhasil
+    } catch (error) {
+        galatServer(res, "[MOBILE cancelOrder]", error);
+    }
+};
+
+exports.listOrders = async (req, res) => {
+    try {
+        const rows = await Keuangan.listByPengunjung(req.user.id);
+        res.json({ success: true, orders: rows.map(orderJson) });
+    } catch (error) {
+        galatServer(res, "[MOBILE listOrders]", error);
+    }
+};
+
+exports.getOrder = async (req, res) => {
+    try {
+        const row = await pesananMilik(req.params.trx, req.user.id);
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        res.json({ success: true, order: orderJson(row) });
+    } catch (error) {
+        galatServer(res, "[MOBILE getOrder]", error);
+    }
+};
+
+// Kode akses sah = transaksi berhasil + belum lewat 23:59 + milik akun ini / dari loket
+exports.verifyAccess = async (req, res) => {
+    try {
+        const valid = await Keuangan.cekKodeAkses(req.body.code, req.user.id);
+        res.json({ success: true, valid });
+    } catch (error) {
+        galatServer(res, "[MOBILE verifyAccess]", error);
+    }
+};
+
+// =====================================================================
+// ULASAN (FEEDBACK) - tampil di menu Feed Back web admin
+// =====================================================================
+const feedbackJson = (r) => ({
+    id: r.id,
+    rating: r.rating,
+    review: r.ulasan,
+    photos: parseFoto(r.foto), // daftar path relatif (0-3), mis. "/uploads/feedback/xxx.jpg"
+    reply: r.balasan_admin, // null = belum dibalas
+    status: r.balasan_admin ? "replied" : "pending",
+    created_at: new Date(r.tanggal).toISOString(),
+});
+
+// Sudah mengirim ulasan hari ini? (kuota 1x per hari per akun)
+exports.feedbackToday = async (req, res) => {
+    try {
+        res.json({
+            success: true,
+            sent: await Feedback.sudahKirimHariIni(req.user.id),
+        });
+    } catch (error) {
+        galatServer(res, "[MOBILE feedbackToday]", error);
+    }
+};
+
+exports.createFeedback = async (req, res) => {
+    const fotoList = (req.files ?? []).map((f) => PUBLIC_PREFIX + f.filename);
+    try {
+        const parsed = feedbackKirimSchema.safeParse(req.body ?? {});
+        if (!parsed.success) {
+            hapusFileFoto(fotoList);
+            return gagal(
+                res,
+                400,
+                "validation_error",
+                parsed.error.issues[0]?.message ?? "Data tidak valid",
+            );
+        }
+
+        const akun = await Pengunjung.findById(req.user.id);
+        if (!akun) {
+            hapusFileFoto(fotoList);
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+        if (await Feedback.sudahKirimHariIni(akun.id)) {
+            hapusFileFoto(fotoList);
+            return gagal(
+                res,
+                409,
+                "already_sent_today",
+                "Ulasan hanya bisa dikirim sekali sehari",
+            );
+        }
+
+        const id = await Feedback.create({
+            pengunjungId: akun.id,
+            nama: akun.nama,
+            rating: parsed.data.rating,
+            ulasan: parsed.data.review,
+            foto: fotoList.length ? JSON.stringify(fotoList) : null,
+        });
+        const row = await Feedback.findOwn(id, akun.id);
+        res.status(201).json({ success: true, feedback: feedbackJson(row) });
+    } catch (error) {
+        hapusFileFoto(fotoList);
+        galatServer(res, "[MOBILE createFeedback]", error);
+    }
+};
+
+exports.listFeedback = async (req, res) => {
+    try {
+        const rows = await Feedback.listByPengunjung(req.user.id);
+        res.json({ success: true, feedbacks: rows.map(feedbackJson) });
+    } catch (error) {
+        galatServer(res, "[MOBILE listFeedback]", error);
+    }
+};
+
+exports.getFeedback = async (req, res) => {
+    try {
+        const row = await Feedback.findOwn(req.params.id, req.user.id);
+        if (!row)
+            return gagal(
+                res,
+                404,
+                "feedback_missing",
+                "Ulasan tidak ditemukan",
+            );
+        res.json({ success: true, feedback: feedbackJson(row) });
+    } catch (error) {
+        galatServer(res, "[MOBILE getFeedback]", error);
+    }
+};
+
+// =====================================================================
+// HAPUS AKUN
+// =====================================================================
+// Baris akun dihapus -> tidak bisa login lagi, dan hilang dari Data User di web admin.
+// Catatan keuangan (tiket) dan ulasan lama sengaja DIPERTAHANKAN sebagai arsip museum;
+// keduanya tidak bisa dipakai siapa pun karena id akun yang dihapus tidak dipakai ulang.
+exports.deleteAccount = async (req, res) => {
+    try {
+        await Perangkat.hapusSemua(req.user.id); // HP akun ini berhenti menerima notifikasi
+        await Pengunjung.delete(req.user.id);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE deleteAccount]", error);
+    }
+};
+
+// =====================================================================
+// NOTIFIKASI PUSH: daftar / lepas HP
+// =====================================================================
+// Dipanggil aplikasi setelah masuk (dan saat token berubah)
+exports.daftarkanPerangkat = async (req, res) => {
+    try {
+        await Perangkat.simpan(req.user.id, req.body.token, req.body.platform);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE daftarkanPerangkat]", error);
+    }
+};
+
+// Dipanggil saat Log Out supaya HP ini tidak menerima notifikasi akun tersebut
+exports.lepasPerangkat = async (req, res) => {
+    try {
+        await Perangkat.hapusToken(req.body.token, req.user.id);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE lepasPerangkat]", error);
+    }
+};
+
+
+
+================================================
 FILE: controllers/pengunjung.controller.js
 ================================================
 const Pengunjung = require("../models/pengunjung.model");
+const { BATAS_ONLINE_DETIK } = require("../config/presence");
 
 // Avatar default sementara jika user belum punya foto
 const DUMMY_AVATAR =
     "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80";
 
+const adaDuplikat = (error) => error.code === "ER_DUP_ENTRY";
+
 exports.getSemuaPengunjung = async (req, res) => {
     try {
         const data = await Pengunjung.getAll();
 
-        // Sesuaikan format data MySQL dengan tipe TypeScript di Frontend
-        const formattedData = data.map((item) => ({
-            id: item.id,
-            name: item.nama,
-            phone: item.no_telp,
-            email: item.email,
-            address: item.alamat,
-            status: item.status,
-            // REVISI: Menggunakan format tanggal lokal (YYYY-MM-DD)
-            createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
-                "sv-SE",
-            ),
-            avatar: item.avatar || DUMMY_AVATAR,
-        }));
+        const formattedData = data.map((item) => {
+            // Detik sejak aktif terakhir (null = belum pernah memakai aplikasi)
+            const detik =
+                item.terakhir_aktif && item.detik_sejak_aktif !== null
+                    ? Math.max(0, Number(item.detik_sejak_aktif))
+                    : null;
+            // Online hanya jika terakhir melapor Online DAN heartbeat masih baru
+            const online =
+                item.status === "Online" &&
+                detik !== null &&
+                detik <= BATAS_ONLINE_DETIK;
+
+            return {
+                id: item.id,
+                name: item.nama,
+                phone: item.no_telp, // null jika daftar lewat email
+                email: item.email, // null jika daftar lewat telepon
+                address: item.alamat,
+                status: online ? "Online" : "Offline",
+                inactiveSeconds: detik, // dipakai web untuk "Offline 5 menit lalu"
+                createdAt: new Date(item.tanggal_dibuat).toLocaleDateString(
+                    "sv-SE",
+                ),
+                avatar: item.avatar || DUMMY_AVATAR,
+            };
+        });
 
         res.json({ success: true, data: formattedData });
     } catch (error) {
@@ -630,13 +1401,12 @@ exports.getSemuaPengunjung = async (req, res) => {
 
 exports.tambahPengunjung = async (req, res) => {
     try {
-        const { name, phone, email, address, status } = req.body;
+        const { name, phone, email, address } = req.body;
         const insertId = await Pengunjung.create({
             nama: name,
             no_telp: phone,
-            email: email,
+            email,
             alamat: address,
-            status: status,
             avatar: DUMMY_AVATAR,
         });
         res.status(201).json({
@@ -646,25 +1416,37 @@ exports.tambahPengunjung = async (req, res) => {
         });
     } catch (error) {
         console.error("[USER ERROR]", error);
+        if (adaDuplikat(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Email atau nomor telepon sudah terdaftar",
+            });
+        }
         res.status(500).json({
             success: false,
-            message: "Gagal menambah data (Email mungkin sudah terdaftar)",
+            message: "Gagal menambah data",
         });
     }
 };
 
 exports.ubahPengunjung = async (req, res) => {
     try {
-        const { name, phone, email, address, status } = req.body;
+        const { name, phone, email, address } = req.body;
         await Pengunjung.update(req.params.id, {
             nama: name,
             no_telp: phone,
-            email: email,
+            email,
             alamat: address,
-            status: status,
         });
         res.json({ success: true, message: "Berhasil diperbarui" });
     } catch (error) {
+        console.error("[USER ERROR]", error);
+        if (adaDuplikat(error)) {
+            return res.status(409).json({
+                success: false,
+                message: "Email atau nomor telepon sudah dipakai pengunjung lain",
+            });
+        }
         res.status(500).json({
             success: false,
             message: "Gagal memperbarui data",
@@ -699,6 +1481,13 @@ exports.createToken = (user) =>
     );
 
 exports.verifyToken = (token) => jwt.verify(token, process.env.JWT_SECRET);
+
+// Token pengunjung aplikasi mobile. role "visitor" sehingga tidak bisa membuka
+// endpoint admin (requireAdmin hanya menerima role "admin").
+exports.createVisitorToken = (visitor) =>
+    jwt.sign({ id: visitor.id, role: "visitor" }, process.env.JWT_SECRET, {
+        expiresIn: "30d",
+    });
 
 
 
@@ -748,7 +1537,18 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-module.exports = { authenticate, requireAdmin };
+// Fungsi satpam khusus untuk pengunjung aplikasi mobile
+const requireVisitor = (req, res, next) => {
+    if (req.user.role !== "visitor") {
+        return res.status(403).json({
+            success: false,
+            message: "Akses ditolak. Hanya untuk pengunjung aplikasi.",
+        });
+    }
+    next();
+};
+
+module.exports = { authenticate, requireAdmin, requireVisitor };
 
 
 
@@ -832,6 +1632,109 @@ module.exports = { uploadGambar, hapusFileGambar, PUBLIC_PREFIX };
 
 
 ================================================
+FILE: middleware/uploadFeedback.middleware.js
+================================================
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+const multer = require("multer");
+
+// Foto ulasan disimpan di backend/uploads/feedback dan diakses lewat /uploads/feedback/<nama-file>
+// (folder /uploads sudah disajikan oleh index.js)
+const UPLOAD_DIR = path.join(__dirname, "..", "uploads", "feedback");
+const PUBLIC_PREFIX = "/uploads/feedback/";
+const MAX_FOTO_MB = 5;
+const MAX_FOTO = 3; // jumlah foto per ulasan
+
+const EXT_BY_MIME = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+};
+
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => {
+        // Nama dibuat sendiri (bukan dari nama file asli) agar aman dan tidak bentrok
+        const unik = crypto.randomBytes(6).toString("hex");
+        cb(null, `feedback-${Date.now()}-${unik}${EXT_BY_MIME[file.mimetype]}`);
+    },
+});
+
+const upload = multer({
+    storage,
+    limits: { fileSize: MAX_FOTO_MB * 1024 * 1024, files: MAX_FOTO },
+    fileFilter: (req, file, cb) => {
+        if (!EXT_BY_MIME[file.mimetype]) {
+            const err = new Error("Hanya menerima foto JPG, PNG, atau WEBP.");
+            err.code = "INVALID_FILE_TYPE";
+            return cb(err);
+        }
+        cb(null, true);
+    },
+}).array("foto", MAX_FOTO); // nama field di form aplikasi mobile (boleh diulang sampai 3 kali)
+
+// Dipasang SETELAH authenticate dan SEBELUM handler (body multipart baru terbaca setelah ini).
+const uploadFoto = (req, res, next) => {
+    upload(req, res, (err) => {
+        if (!err) return next();
+
+        if (err instanceof multer.MulterError) {
+            const message =
+                err.code === "LIMIT_FILE_SIZE"
+                    ? `Ukuran foto maksimal ${MAX_FOTO_MB} MB.`
+                    : err.code === "LIMIT_UNEXPECTED_FILE" || err.code === "LIMIT_FILE_COUNT"
+                      ? `Maksimal ${MAX_FOTO} foto.`
+                      : err.message;
+            return res
+                .status(400)
+                .json({ success: false, code: "invalid_photo", message });
+        }
+        if (err.code === "INVALID_FILE_TYPE") {
+            return res
+                .status(400)
+                .json({ success: false, code: "invalid_photo", message: err.message });
+        }
+        return res.status(500).json({
+            success: false,
+            code: "server_error",
+            message: "Gagal mengunggah foto.",
+        });
+    });
+};
+
+// Kolom `foto` di database berisi array JSON, mis. ["/uploads/feedback/a.jpg","/uploads/feedback/b.jpg"].
+// Nilai lama berupa satu path biasa juga tetap terbaca.
+const parseFoto = (raw) => {
+    if (!raw || typeof raw !== "string") return [];
+    if (raw.startsWith("[")) {
+        try {
+            const arr = JSON.parse(raw);
+            return Array.isArray(arr) ? arr.filter((x) => typeof x === "string") : [];
+        } catch {
+            return [];
+        }
+    }
+    return [raw];
+};
+
+// Hapus file lokal dari disk (path lain diabaikan). Menerima satu path atau daftar path.
+const hapusFileFoto = (foto) => {
+    const daftar = Array.isArray(foto) ? foto : [foto];
+    for (const f of daftar) {
+        if (typeof f !== "string" || !f.startsWith(PUBLIC_PREFIX)) continue;
+        const namaFile = path.basename(f); // basename mencegah path traversal
+        fs.unlink(path.join(UPLOAD_DIR, namaFile), () => {});
+    }
+};
+
+module.exports = { uploadFoto, hapusFileFoto, parseFoto, PUBLIC_PREFIX, MAX_FOTO };
+
+
+
+================================================
 FILE: middleware/validate.middleware.js
 ================================================
 const fs = require("fs"); // <-- Tambahan sesuai instruksi
@@ -902,18 +1805,61 @@ FILE: models/feedback.model.js
 const db = require("../config/db");
 
 const Feedback = {
+    // ---------- admin (web) ----------
     getAll: async () => {
         const [rows] = await db.query(
-            "SELECT * FROM feedback ORDER BY tanggal DESC",
+            "SELECT * FROM feedback ORDER BY tanggal DESC, id DESC",
         );
         return rows;
     },
-    // Fungsi khusus untuk admin membalas ulasan
+
+    // Admin membalas ulasan -> status otomatis "Telah Di Balas"
     reply: async (id, balasan) => {
         await db.query(
             "UPDATE feedback SET balasan_admin = ?, status = 'Telah Di Balas' WHERE id = ?",
             [balasan, id],
         );
+    },
+
+    findById: async (id) => {
+        const [rows] = await db.query("SELECT * FROM feedback WHERE id = ?", [id]);
+        return rows[0] || null;
+    },
+
+    // ---------- aplikasi mobile ----------
+    // Sudah mengirim ulasan hari ini? (hari kalender, jam database)
+    sudahKirimHariIni: async (pengunjungId) => {
+        const [rows] = await db.query(
+            "SELECT id FROM feedback WHERE pengunjung_id = ? AND DATE(tanggal) = CURDATE() LIMIT 1",
+            [pengunjungId],
+        );
+        return rows.length > 0;
+    },
+
+    create: async ({ pengunjungId, nama, rating, ulasan, foto }) => {
+        const [result] = await db.query(
+            `INSERT INTO feedback (pengunjung_id, nama, ulasan, rating, foto, status)
+             VALUES (?, ?, ?, ?, ?, 'Belum Di Balas')`,
+            [pengunjungId, nama, ulasan, rating, foto],
+        );
+        return result.insertId;
+    },
+
+    listByPengunjung: async (pengunjungId) => {
+        const [rows] = await db.query(
+            "SELECT * FROM feedback WHERE pengunjung_id = ? ORDER BY tanggal DESC, id DESC",
+            [pengunjungId],
+        );
+        return rows;
+    },
+
+    // Hanya ulasan milik akun ini
+    findOwn: async (id, pengunjungId) => {
+        const [rows] = await db.query(
+            "SELECT * FROM feedback WHERE id = ? AND pengunjung_id = ?",
+            [id, pengunjungId],
+        );
+        return rows[0] || null;
     },
 };
 
@@ -941,8 +1887,10 @@ const buatIdTrx = () =>
 const SQL_INSERT = `
     INSERT INTO keuangan
         (id_trx, jenis, nominal, keterangan, nama, no_telepon, jumlah_tiket,
-         jenis_tiket, jenis_pembayaran, jenis_pencairan, no_rekening)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+         jenis_tiket, jenis_pembayaran, jenis_pencairan, penyedia_pencairan, no_rekening,
+         status, pengunjung_id, kode_akses, kedaluwarsa_akses)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            IF(? IS NULL, NULL, TIMESTAMP(CURDATE(), '23:59:59')))`;
 
 // Simpan 1 baris. Kalau Id Trx kebetulan kembar (UNIQUE), buat ulang.
 const insert = async (conn, d) => {
@@ -960,7 +1908,12 @@ const insert = async (conn, d) => {
                 d.jenisTiket ?? null,
                 d.jenisPembayaran ?? null,
                 d.jenisPencairan ?? null,
+                d.penyediaPencairan ?? null,
                 d.noRekening ?? null,
+                d.status ?? "Berhasil",
+                d.pengunjungId ?? null,
+                d.kodeAkses ?? null,
+                d.kodeAkses ?? null, // dipakai untuk menghitung kedaluwarsa (23:59:59 hari ini)
             ]);
             return { id: result.insertId, idTrx };
         } catch (err) {
@@ -991,9 +1944,75 @@ const SQL_PENCAIRAN_BULAN_INI = `
 const Keuangan = {
     getAll: async () => {
         const [rows] = await db.query(
-            "SELECT * FROM keuangan ORDER BY tanggal DESC, id DESC",
+            `SELECT *,
+                    (kedaluwarsa_akses IS NOT NULL AND kedaluwarsa_akses <= NOW()) AS akses_kedaluwarsa
+             FROM keuangan ORDER BY tanggal DESC, id DESC`,
         );
         return rows;
+    },
+
+    // ---------- pesanan tiket dari aplikasi mobile ----------
+    findByTrx: async (idTrx) => {
+        const [rows] = await db.query(
+            "SELECT * FROM keuangan WHERE id_trx = ?",
+            [idTrx],
+        );
+        return rows[0] || null;
+    },
+
+    listByPengunjung: async (pengunjungId) => {
+        const [rows] = await db.query(
+            `SELECT * FROM keuangan
+             WHERE pengunjung_id = ? AND jenis = 'Pemasukan'
+             ORDER BY tanggal DESC, id DESC`,
+            [pengunjungId],
+        );
+        return rows;
+    },
+
+    setStatus: async (id, status) => {
+        await db.query("UPDATE keuangan SET status = ? WHERE id = ?", [
+            status,
+            id,
+        ]);
+    },
+
+    // Konfirmasi pembayaran tunai oleh admin: Pending -> Berhasil.
+    // Kode akses berlaku sampai 23:59:59 HARI KONFIRMASI. true jika ada baris berubah.
+    konfirmasi: async (id) => {
+        const [result] = await db.query(
+            `UPDATE keuangan
+             SET status = 'Berhasil',
+                 kedaluwarsa_akses = IF(kode_akses IS NULL, NULL, TIMESTAMP(CURDATE(), '23:59:59'))
+             WHERE id = ? AND jenis = 'Pemasukan' AND status = 'Pending'`,
+            [id],
+        );
+        return result.affectedRows > 0;
+    },
+
+    // Pengguna membatalkan pesanan dari aplikasi: Pending -> Dibatalkan.
+    // Hanya pesanan yang MASIH pending yang bisa dibatalkan (yang sudah dibayar tidak).
+    batalkan: async (id) => {
+        const [result] = await db.query(
+            `UPDATE keuangan SET status = 'Dibatalkan'
+             WHERE id = ? AND jenis = 'Pemasukan' AND status = 'Pending'`,
+            [id],
+        );
+        return result.affectedRows > 0;
+    },
+
+    // Kode akses sah: transaksi berhasil, belum lewat 23:59, milik akun ini
+    // (atau kode dari loket / admin yang tidak terikat akun mana pun).
+    cekKodeAkses: async (kode, pengunjungId) => {
+        const [rows] = await db.query(
+            `SELECT id FROM keuangan
+             WHERE kode_akses = ? AND jenis = 'Pemasukan' AND status = 'Berhasil'
+               AND kedaluwarsa_akses > NOW()
+               AND (pengunjung_id = ? OR pengunjung_id IS NULL)
+             LIMIT 1`,
+            [kode, pengunjungId],
+        );
+        return rows.length > 0;
     },
 
     getSummary: async (conn = db) => {
@@ -1019,6 +2038,7 @@ const Keuangan = {
 
     // Isi Saldo (pemasukan): saldo hanya bertambah, tidak perlu dikunci
     create: (data) => insert(db, data),
+    createPesanan: (data) => insert(db, data), // pesanan dari aplikasi mobile
 
     // Pencairan (pengeluaran): saldo dicek dulu. Dikunci supaya dua pencairan
     // yang masuk bersamaan tidak sama-sama lolos dari saldo yang sama.
@@ -1116,38 +2136,144 @@ FILE: models/pengunjung.model.js
 const db = require("../config/db");
 
 const Pengunjung = {
+    // detik_sejak_aktif dihitung oleh database (NOW() - terakhir_aktif),
+    // jadi tidak terpengaruh perbedaan zona waktu server dan browser.
+    // password_hash sengaja tidak ikut dipilih.
     getAll: async () => {
         const [rows] = await db.query(
-            "SELECT * FROM pengunjung ORDER BY tanggal_dibuat DESC",
+            `SELECT id, nama, no_telp, email, alamat, status, avatar,
+                    tanggal_dibuat, terakhir_aktif,
+                    TIMESTAMPDIFF(SECOND, terakhir_aktif, NOW()) AS detik_sejak_aktif
+             FROM pengunjung
+             ORDER BY tanggal_dibuat DESC`,
         );
         return rows;
     },
+
+    // Ditambah manual oleh admin (belum pernah memakai aplikasi -> Offline)
     create: async (data) => {
         const [result] = await db.query(
-            "INSERT INTO pengunjung (nama, no_telp, email, alamat, status, avatar) VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                data.nama,
-                data.no_telp,
-                data.email,
-                data.alamat,
-                data.status || "Online",
-                data.avatar || "",
-            ],
+            "INSERT INTO pengunjung (nama, no_telp, email, alamat, status, avatar) VALUES (?, ?, ?, ?, 'Offline', ?)",
+            [data.nama, data.no_telp, data.email, data.alamat, data.avatar || ""],
         );
         return result.insertId;
     },
+
+    // Status Online / Offline TIDAK diubah di sini; itu urusan aplikasi mobile
     update: async (id, data) => {
         await db.query(
-            "UPDATE pengunjung SET nama = ?, no_telp = ?, email = ?, alamat = ?, status = ? WHERE id = ?",
-            [data.nama, data.no_telp, data.email, data.alamat, data.status, id],
+            "UPDATE pengunjung SET nama = ?, no_telp = ?, email = ?, alamat = ? WHERE id = ?",
+            [data.nama, data.no_telp, data.email, data.alamat, id],
         );
     },
+
     delete: async (id) => {
         await db.query("DELETE FROM pengunjung WHERE id = ?", [id]);
+    },
+
+    // ---------- khusus aplikasi mobile ----------
+    findByEmail: async (email) => {
+        const [rows] = await db.query(
+            "SELECT id FROM pengunjung WHERE LOWER(email) = ?",
+            [email.toLowerCase()],
+        );
+        return rows[0] || null;
+    },
+
+    findByPhone: async (phone) => {
+        const [rows] = await db.query(
+            "SELECT id FROM pengunjung WHERE no_telp = ?",
+            [phone],
+        );
+        return rows[0] || null;
+    },
+
+    findById: async (id) => {
+        const [rows] = await db.query(
+            "SELECT id, nama, email, no_telp FROM pengunjung WHERE id = ?",
+            [id],
+        );
+        return rows[0] || null;
+    },
+
+    // Untuk login: ikut mengambil password_hash (JANGAN dikirim ke klien)
+    findLogin: async (jenis, kontak) => {
+        const sql =
+            jenis === "phone"
+                ? "SELECT id, nama, email, no_telp, password_hash FROM pengunjung WHERE no_telp = ?"
+                : "SELECT id, nama, email, no_telp, password_hash FROM pengunjung WHERE LOWER(email) = ?";
+        const [rows] = await db.query(sql, [kontak]);
+        return rows[0] || null;
+    },
+
+    // Akun dari aplikasi: langsung Online
+    createMobile: async ({ nama, email, noTelp, passwordHash }) => {
+        const [result] = await db.query(
+            `INSERT INTO pengunjung
+                (nama, no_telp, email, alamat, password_hash, status, terakhir_aktif, avatar)
+             VALUES (?, ?, ?, NULL, ?, 'Online', NOW(), '')`,
+            [nama, noTelp, email, passwordHash],
+        );
+        return result.insertId;
+    },
+
+    // true jika akun masih ada
+    tandaiAktif: async (id) => {
+        const [result] = await db.query(
+            "UPDATE pengunjung SET status = 'Online', terakhir_aktif = NOW() WHERE id = ?",
+            [id],
+        );
+        return result.affectedRows > 0;
+    },
+
+    tandaiOffline: async (id) => {
+        await db.query(
+            "UPDATE pengunjung SET status = 'Offline', terakhir_aktif = NOW() WHERE id = ?",
+            [id],
+        );
     },
 };
 
 module.exports = Pengunjung;
+
+
+
+================================================
+FILE: models/perangkat.model.js
+================================================
+const db = require("../config/db");
+
+const Perangkat = {
+    // Satu token = satu HP. Bila HP dipakai akun lain, token berpindah ke akun itu.
+    simpan: async (pengunjungId, token, platform) => {
+        await db.query(
+            `INSERT INTO perangkat_token (pengunjung_id, token, platform) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE pengunjung_id = ?, platform = ?`,
+            [pengunjungId, token, platform, pengunjungId, platform],
+        );
+    },
+
+    // Dipanggil saat Log Out: HP ini berhenti menerima notifikasi akun tersebut
+    hapusToken: async (token, pengunjungId) => {
+        await db.query("DELETE FROM perangkat_token WHERE token = ? AND pengunjung_id = ?", [token, pengunjungId]);
+    },
+
+    daftarToken: async (pengunjungId) => {
+        const [rows] = await db.query("SELECT token FROM perangkat_token WHERE pengunjung_id = ?", [pengunjungId]);
+        return rows.map((r) => r.token);
+    },
+
+    hapusBanyak: async (tokens) => {
+        if (tokens.length === 0) return;
+        await db.query("DELETE FROM perangkat_token WHERE token IN (?)", [tokens]);
+    },
+
+    hapusSemua: async (pengunjungId) => {
+        await db.query("DELETE FROM perangkat_token WHERE pengunjung_id = ?", [pengunjungId]);
+    },
+};
+
+module.exports = Perangkat;
 
 
 
@@ -1219,6 +2345,52 @@ exports.create = (email, hashed, role) =>
 
 
 ================================================
+FILE: models/verifikasi.model.js
+================================================
+const db = require("../config/db");
+
+const MAKS_PERCOBAAN = 5; // salah 5 kali -> kode hangus, minta kode baru
+
+const Verifikasi = {
+    // Simpan kode baru (menimpa kode lama untuk kontak yang sama), berlaku 10 menit
+    simpanKode: async (kontak, kode) => {
+        await db.query(
+            `INSERT INTO verifikasi_kontak (kontak, kode, percobaan, kedaluwarsa)
+             VALUES (?, ?, 0, DATE_ADD(NOW(), INTERVAL 10 MINUTE))
+             ON DUPLICATE KEY UPDATE kode = ?, percobaan = 0,
+                 kedaluwarsa = DATE_ADD(NOW(), INTERVAL 10 MINUTE)`,
+            [kontak, kode, kode],
+        );
+    },
+
+    // true jika kode benar, belum kedaluwarsa, dan belum kebanyakan salah
+    cekKode: async (kontak, kode) => {
+        const [rows] = await db.query(
+            "SELECT kode, percobaan FROM verifikasi_kontak WHERE kontak = ? AND kedaluwarsa > NOW()",
+            [kontak],
+        );
+        const row = rows[0];
+        if (!row || row.percobaan >= MAKS_PERCOBAAN) return false;
+        if (row.kode !== kode) {
+            await db.query(
+                "UPDATE verifikasi_kontak SET percobaan = percobaan + 1 WHERE kontak = ?",
+                [kontak],
+            );
+            return false;
+        }
+        return true;
+    },
+
+    hapus: async (kontak) => {
+        await db.query("DELETE FROM verifikasi_kontak WHERE kontak = ?", [kontak]);
+    },
+};
+
+module.exports = Verifikasi;
+
+
+
+================================================
 FILE: routes/auth.routes.js
 ================================================
 const express = require("express");
@@ -1275,14 +2447,12 @@ FILE: routes/feedback.routes.js
 const express = require("express");
 const feedbackController = require("../controllers/feedback.controller");
 const { authenticate, requireAdmin } = require("../middleware/auth.middleware");
-
-// --- TAMBAHKAN 2 BARIS INI ---
 const validate = require("../middleware/validate.middleware");
-const { feedbackSchema } = require("../schemas/feedback.schema");
+const { replySchema } = require("../schemas/feedback.schema");
 
 const router = express.Router();
 
-// GET tidak perlu validasi
+// Daftar ulasan (admin)
 router.get(
     "/",
     authenticate,
@@ -1290,12 +2460,12 @@ router.get(
     feedbackController.getSemuaFeedback,
 );
 
-// --- PASANG VALIDATE DI ROUTE PUT (Karena balas feedback butuh input body) ---
+// Balas ulasan (admin). Sebelumnya mengimpor `feedbackSchema` yang tidak ada -> error saat membalas.
 router.put(
     "/:id/reply",
     authenticate,
     requireAdmin,
-    validate(feedbackSchema),
+    validate(replySchema),
     feedbackController.balasFeedback,
 );
 
@@ -1330,6 +2500,14 @@ router.post(
     requireAdmin,
     validate(keuanganSchema),
     keuanganController.tambahKeuangan,
+);
+
+// Admin mengonfirmasi pembayaran tunai pesanan dari aplikasi mobile
+router.patch(
+    "/:id/konfirmasi",
+    authenticate,
+    requireAdmin,
+    keuanganController.konfirmasiPembayaran,
 );
 
 module.exports = router;
@@ -1379,6 +2557,132 @@ router.delete(
     authenticate,
     requireAdmin,
     koleksiController.hapusKoleksi,
+);
+
+module.exports = router;
+
+
+
+================================================
+FILE: routes/mobile.routes.js
+================================================
+const express = require("express");
+const mobileController = require("../controllers/mobile.controller");
+const {
+    authenticate,
+    requireVisitor,
+} = require("../middleware/auth.middleware");
+const validate = require("../middleware/validate.middleware");
+const { uploadFoto } = require("../middleware/uploadFeedback.middleware");
+const {
+    kontakSchema,
+    verifySchema,
+    registerSchema,
+    loginSchema,
+    loginVerifySchema,
+    orderSchema,
+    accessSchema,
+    perangkatSchema,
+} = require("../schemas/mobile.schema");
+
+const router = express.Router();
+
+// --- Pendaftaran (publik) ---
+router.post(
+    "/auth/contact-exists",
+    validate(kontakSchema),
+    mobileController.contactExists,
+);
+router.post(
+    "/auth/send-code",
+    validate(kontakSchema),
+    mobileController.sendCode,
+);
+router.post(
+    "/auth/verify-code",
+    validate(verifySchema),
+    mobileController.verifyCode,
+);
+router.post(
+    "/auth/register",
+    validate(registerSchema),
+    mobileController.register,
+);
+
+// --- Login (publik): password -> kode -> token ---
+router.post("/auth/login", validate(loginSchema), mobileController.login);
+router.post(
+    "/auth/login/verify",
+    validate(loginVerifySchema),
+    mobileController.loginVerify,
+);
+
+// --- Pesanan tiket & kode akses (butuh token pengunjung) ---
+const pengunjungSaja = [authenticate, requireVisitor];
+router.post(
+    "/orders",
+    ...pengunjungSaja,
+    validate(orderSchema),
+    mobileController.createOrder,
+);
+router.get("/orders", ...pengunjungSaja, mobileController.listOrders);
+router.get("/orders/:trx", ...pengunjungSaja, mobileController.getOrder);
+router.post("/orders/:trx/pay", ...pengunjungSaja, mobileController.payOrder);
+router.post(
+    "/orders/:trx/cancel",
+    ...pengunjungSaja,
+    mobileController.cancelOrder,
+);
+router.post(
+    "/access/verify",
+    ...pengunjungSaja,
+    validate(accessSchema),
+    mobileController.verifyAccess,
+);
+
+// --- Ulasan (feedback) & hapus akun ---
+// /feedback/today harus di atas /feedback/:id
+router.get(
+    "/feedback/today",
+    ...pengunjungSaja,
+    mobileController.feedbackToday,
+);
+router.post(
+    "/feedback",
+    ...pengunjungSaja,
+    uploadFoto,
+    mobileController.createFeedback,
+);
+router.get("/feedback", ...pengunjungSaja, mobileController.listFeedback);
+router.get("/feedback/:id", ...pengunjungSaja, mobileController.getFeedback);
+router.delete("/account", ...pengunjungSaja, mobileController.deleteAccount);
+
+// --- Notifikasi push: daftar / lepas HP ---
+router.post(
+    "/devices",
+    ...pengunjungSaja,
+    validate(perangkatSchema),
+    mobileController.daftarkanPerangkat,
+);
+router.post(
+    "/devices/remove",
+    ...pengunjungSaja,
+    validate(perangkatSchema),
+    mobileController.lepasPerangkat,
+);
+
+// --- Status Online / Offline (butuh token pengunjung dari register) ---
+router.post(
+    "/presence/heartbeat",
+    authenticate,
+    requireVisitor,
+    mobileController.heartbeat,
+);
+router.post(
+    "/presence/offline",
+    authenticate,
+    requireVisitor,
+    mobileController.goOffline,
 );
 
 module.exports = router;
@@ -1475,9 +2779,13 @@ exports.resetSchema = z
 FILE: schemas/feedback.schema.js
 ================================================
 const { z } = require("zod");
+
 exports.replySchema = z.object({
     replyText: z.string().trim().min(1, "Balasan tidak boleh kosong"),
 });
+
+// Alias lama agar kode yang masih memakai nama `feedbackSchema` tidak error
+exports.feedbackSchema = exports.replySchema;
 
 
 
@@ -1485,6 +2793,7 @@ exports.replySchema = z.object({
 FILE: schemas/keuangan.schema.js
 ================================================
 const { z } = require("zod");
+const { cariPenyedia, pesanRekening } = require("../config/penyedia");
 
 const hanyaAngka = (v) => v.replace(/\D/g, "");
 
@@ -1537,6 +2846,7 @@ const pengeluaranSchema = z.object({
     jenisPencairan: z.enum(["Bank", "E-Wallet"], {
         error: "Jenis pencairan tidak valid",
     }),
+    penyedia: z.string().trim().min(1, "Pilih bank / e-wallet tujuan"),
     noRekening: z
         .string()
         .trim()
@@ -1548,11 +2858,34 @@ const pengeluaranSchema = z.object({
     deskripsi,
 });
 
-exports.keuanganSchema = z.discriminatedUnion(
-    "tipe",
-    [pemasukanSchema, pengeluaranSchema],
-    { error: "Tipe transaksi harus pemasukan atau pengeluaran" },
-);
+exports.keuanganSchema = z
+    .discriminatedUnion("tipe", [pemasukanSchema, pengeluaranSchema], {
+        error: "Tipe transaksi harus pemasukan atau pengeluaran",
+    })
+    // Aturan yang bergantung pada bank / e-wallet yang dipilih
+    // (panjang rekening bank, awalan 08 untuk e-wallet).
+    .superRefine((b, ctx) => {
+        if (b.tipe !== "pengeluaran") return;
+
+        const penyedia = cariPenyedia(b.jenisPencairan, b.penyedia);
+        if (!penyedia) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["penyedia"],
+                message: "Bank / e-wallet tujuan tidak valid",
+            });
+            return;
+        }
+
+        const pesan = pesanRekening(b.jenisPencairan, penyedia, b.noRekening);
+        if (pesan) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["noRekening"],
+                message: pesan,
+            });
+        }
+    });
 
 
 
@@ -1571,15 +2904,187 @@ exports.koleksiSchema = z.object({
 
 
 ================================================
+FILE: schemas/mobile.schema.js
+================================================
+const { z } = require("zod");
+
+const jenisKontak = z.enum(["email", "phone"], {
+    error: "Jenis kontak tidak valid",
+});
+
+// Email -> huruf kecil. Nomor telepon dipakai apa adanya (+kodeNegara + nomor).
+const rapikan = (s) => (s.includes("@") ? s.toLowerCase() : s);
+
+const cekFormatKontak = (d, ctx) => {
+    if (d.contact_type === "email") {
+        if (!z.string().email().safeParse(d.contact).success) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["contact"],
+                message: "Format email tidak valid",
+            });
+        }
+    } else if (!/^\+\d{8,15}$/.test(d.contact)) {
+        ctx.addIssue({
+            code: "custom",
+            path: ["contact"],
+            message: "Format nomor telepon tidak valid (contoh +6281234567890)",
+        });
+    }
+};
+
+const kontakString = z.string().trim().min(1, "Kontak wajib diisi");
+
+// contact-exists dan send-code
+exports.kontakSchema = z
+    .object({ contact_type: jenisKontak, contact: kontakString })
+    .superRefine(cekFormatKontak)
+    .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
+
+exports.verifySchema = z.object({
+    contact: kontakString.transform(rapikan),
+    code: z.string().regex(/^\d{6}$/, "Kode harus 6 digit angka"),
+});
+
+// Aturan password sama dengan aplikasi mobile (AuthValidators.passwordError)
+const password = z
+    .string()
+    .min(10, "Password minimal 10 karakter")
+    .max(50, "Password maksimal 50 karakter")
+    .regex(/\p{L}/u, "Password harus mengandung huruf")
+    .regex(/\d/, "Password harus mengandung angka")
+    .regex(/[^\p{L}\p{N}\s]/u, "Password harus mengandung simbol");
+
+exports.registerSchema = z
+    .object({
+        name: z.string().trim().min(3, "Nama minimal 3 karakter").max(50, "Nama maksimal 50 karakter"),
+        contact_type: jenisKontak,
+        contact: kontakString,
+        password,
+        code: z.string().regex(/^\d{6}$/, "Kode harus 6 digit angka"),
+    })
+    .superRefine(cekFormatKontak)
+    .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
+
+// Login: email / nomor + password (kode verifikasi dikirim setelah password benar)
+exports.loginSchema = z
+    .object({
+        contact_type: jenisKontak,
+        contact: kontakString,
+        password: z.string().min(1, "Password wajib diisi").max(100),
+    })
+    .superRefine(cekFormatKontak)
+    .transform((d) => ({ ...d, contact: rapikan(d.contact) }));
+
+exports.loginVerifySchema = exports.verifySchema;
+
+// Pesanan tiket. Harga TIDAK dikirim klien; backend menghitungnya dari tarif.
+exports.orderSchema = z.object({
+    type_key: z.enum(["booking_title", "guide_title"], {
+        error: "Jenis tiket tidak valid",
+    }),
+    count: z
+        .number({ error: "Jumlah tiket harus berupa angka" })
+        .int("Jumlah tiket harus bilangan bulat")
+        .min(1, "Jumlah tiket minimal 1")
+        .max(100, "Jumlah tiket maksimal 100"),
+    pay: z.enum(["cash", "qr"], { error: "Cara bayar tidak valid" }),
+});
+
+exports.accessSchema = z.object({
+    code: z.string().trim().min(1, "Kode akses wajib diisi").max(20),
+});
+
+// Kirim ulasan (multipart): bintang wajib 1-5, teks opsional maksimal 200 karakter.
+// Nilai multipart selalu teks, jadi rating dikonversi ke angka (coerce).
+exports.feedbackKirimSchema = z.object({
+    rating: z.coerce
+        .number({ error: "Silakan rating kepuasan Anda" })
+        .int("Silakan rating kepuasan Anda")
+        .min(1, "Silakan rating kepuasan Anda")
+        .max(5, "Rating maksimal 5"),
+    review: z.string().trim().max(200, "Ulasan maksimal 200 karakter").optional().default(""),
+});
+
+// Alamat HP (token FCM) untuk notifikasi push
+exports.perangkatSchema = z.object({
+    token: z.string().trim().min(20, "Token tidak valid").max(255, "Token tidak valid"),
+    platform: z.enum(["android", "ios"]).optional().default("android"),
+});
+
+
+
+================================================
 FILE: schemas/pengunjung.schema.js
 ================================================
 const { z } = require("zod");
-exports.pengunjungSchema = z.object({
-    name: z.string().trim().min(1, "Nama wajib diisi"),
-    phone: z.string().trim().min(1, "No telepon wajib diisi"),
-    email: z.string().trim().email("Format email salah"),
-    address: z.string().trim().min(1, "Alamat wajib diisi"),
-    status: z.enum(["Online", "Offline"]).optional(),
-});
+
+// "" atau tidak diisi -> null (kolom di database boleh kosong)
+const opsional = (inner) =>
+    z.preprocess(
+        (v) => (v == null || (typeof v === "string" && v.trim() === "") ? null : v),
+        inner.nullable(),
+    );
+
+exports.pengunjungSchema = z
+    .object({
+        name: z.string().trim().min(3, "Nama minimal 3 karakter"),
+        // 08xxxxxxxxxx (10-13 digit) atau format internasional +kodeNegara...
+        phone: opsional(
+            z
+                .string()
+                .trim()
+                .regex(
+                    /^(\+\d{8,15}|08\d{8,11})$/,
+                    "Nomor telepon: 08xxxxxxxxxx (10-13 digit) atau +kodeNegara",
+                ),
+        ),
+        email: opsional(
+            z.string().trim().email("Format email salah").toLowerCase(),
+        ),
+        address: opsional(z.string().trim()),
+    })
+    .superRefine((d, ctx) => {
+        if (!d.phone && !d.email) {
+            ctx.addIssue({
+                code: "custom",
+                path: ["phone"],
+                message: "Isi nomor telepon atau email (minimal salah satu)",
+            });
+        }
+    });
+
+
+
+================================================
+FILE: services/push.js
+================================================
+const Feedback = require("../models/feedback.model");
+const Perangkat = require("../models/perangkat.model");
+const { kirimPush } = require("../config/firebase");
+
+const POTONG = 120; // isi balasan di notifikasi dipotong supaya tidak kepanjangan
+
+// Dipanggil setelah admin membalas ulasan -> notifikasi ke HP pemilik ulasan.
+// Judul: "Ulasan"   Isi: "Ulasan di balas oleh admin : <isi balasan>"
+const kirimNotifikasiBalasan = async (feedbackId, teksBalasan) => {
+    const ulasan = await Feedback.findById(feedbackId);
+    if (!ulasan?.pengunjung_id) return; // ulasan lama / tanpa akun mobile
+
+    const tokens = await Perangkat.daftarToken(ulasan.pengunjung_id);
+    if (tokens.length === 0) return;
+
+    const ringkas = String(teksBalasan).trim().replace(/\s+/g, " ");
+    const isi = ringkas.length > POTONG ? `${ringkas.slice(0, POTONG - 1)}â€¦` : ringkas;
+
+    const { mati } = await kirimPush(tokens, {
+        title: "Ulasan",
+        body: `Ulasan di balas oleh admin : ${isi}`,
+        data: { type: "review_reply", feedback_id: String(feedbackId) },
+    });
+    await Perangkat.hapusBanyak(mati); // buang token HP yang sudah tidak aktif
+};
+
+module.exports = { kirimNotifikasiBalasan };
 
 

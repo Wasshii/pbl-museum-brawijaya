@@ -1,4 +1,6 @@
 const Feedback = require("../models/feedback.model");
+const { kirimNotifikasiBalasan } = require("../services/push");
+const { parseFoto } = require("../middleware/uploadFeedback.middleware");
 
 exports.getSemuaFeedback = async (req, res) => {
     try {
@@ -10,7 +12,7 @@ exports.getSemuaFeedback = async (req, res) => {
             nama_user: item.nama,
             rating: item.rating,
             komentar: item.ulasan, // bisa kosong (ulasan teks bersifat opsional)
-            foto: item.foto || null, // mis. "/uploads/feedback/xxx.jpg"; null = tanpa foto
+            fotos: parseFoto(item.foto), // 0-3 foto, mis. "/uploads/feedback/xxx.jpg"
             // Format tanggal lokal (YYYY-MM-DD)
             tanggal: new Date(item.tanggal).toLocaleDateString("sv-SE"),
             balasan: item.balasan_admin || null,
@@ -31,6 +33,12 @@ exports.balasFeedback = async (req, res) => {
         const { replyText } = req.body;
         await Feedback.reply(req.params.id, replyText);
         res.json({ success: true, message: "Balasan berhasil dikirim" });
+
+        // Notifikasi ke HP pengguna dikirim SETELAH respons ke admin (tidak menahan admin).
+        // Kegagalan notifikasi hanya dicatat di log; balasan tetap tersimpan.
+        kirimNotifikasiBalasan(req.params.id, replyText).catch((e) =>
+            console.error("[PUSH] Gagal mengirim notifikasi:", e.message),
+        );
     } catch (error) {
         console.error("[FEEDBACK ERROR]", error);
         res.status(500).json({

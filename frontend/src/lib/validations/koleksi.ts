@@ -1,15 +1,17 @@
 import { z } from "zod";
+import { KATEGORI_KOLEKSI } from "@/lib/constants";
 
 export const MAX_IMAGE_MB = 1;
 
 export const koleksiSchema = z.object({
     nama: z.string().trim().min(3, "Nama minimal 3 karakter"),
-    jenis: z.string().trim().min(1, "Jenis wajib diisi"),
-    token: z
+    jenis: z.enum(KATEGORI_KOLEKSI, { message: "Pilih kategori benda" }),
+    tahun: z
         .string()
         .trim()
-        .regex(/^[A-Za-z0-9]{4,12}$/, "Token 4-12 karakter huruf atau angka"),
-    deskripsi: z.string().trim().min(10, "Deskripsi minimal 10 karakter"),
+        .regex(/^(\d{1,4})?$/, "Tahun berupa angka (mis. 1948)"),
+    deskripsi: z.string().trim().min(10, "Sejarah minimal 10 karakter"),
+    identitas: z.string().trim().min(3, "Identitas wajib diisi"),
 });
 
 // Mengembalikan pesan error, atau null jika file valid

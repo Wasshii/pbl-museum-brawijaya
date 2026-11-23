@@ -12,8 +12,9 @@ const toFormData = (values: KoleksiFormValues): FormData => {
     const body = new FormData();
     body.append("nama", values.nama);
     body.append("jenis", values.jenis);
-    body.append("token", values.token);
+    body.append("tahun", values.tahun);
     body.append("deskripsi", values.deskripsi);
+    body.append("identitas", values.identitas);
     // Tanpa file baru, backend mempertahankan gambar lama (saat edit)
     // atau memakai gambar bawaan (saat tambah).
     if (values.fileGambar) body.append("gambar", values.fileGambar);

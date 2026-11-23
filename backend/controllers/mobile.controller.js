@@ -4,7 +4,14 @@ const Pengunjung = require("../models/pengunjung.model");
 const Verifikasi = require("../models/verifikasi.model");
 const Keuangan = require("../models/keuangan.model");
 const Feedback = require("../models/feedback.model");
-const { hapusFileFoto, PUBLIC_PREFIX } = require("../middleware/uploadFeedback.middleware");
+const Perangkat = require("../models/perangkat.model");
+const Koleksi = require("../models/koleksi.model");
+const KoleksiTersimpan = require("../models/koleksiTersimpan.model");
+const {
+    hapusFileFoto,
+    parseFoto,
+    PUBLIC_PREFIX,
+} = require("../middleware/uploadFeedback.middleware");
 const { feedbackKirimSchema } = require("../schemas/mobile.schema");
 const { createVisitorToken } = require("../lib/jwt");
 const { hitungNominal } = require("../config/tarif");
@@ -16,7 +23,9 @@ const cariKontak = (jenis, kontak) =>
         : Pengunjung.findByEmail(kontak);
 
 const pesanTerpakai = (jenis) =>
-    jenis === "phone" ? "Nomor telepon sudah terdaftar" : "Email sudah terdaftar";
+    jenis === "phone"
+        ? "Nomor telepon sudah terdaftar"
+        : "Email sudah terdaftar";
 
 // Format error seragam; "code" dipakai aplikasi mobile untuk memilih teks yang tampil
 const gagal = (res, status, code, message) =>
@@ -47,7 +56,12 @@ exports.sendCode = async (req, res) => {
     try {
         const { contact_type, contact } = req.body;
         if (await cariKontak(contact_type, contact)) {
-            return gagal(res, 409, "contact_taken", pesanTerpakai(contact_type));
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
         }
 
         const code = crypto.randomInt(100000, 1000000).toString();
@@ -64,7 +78,12 @@ exports.verifyCode = async (req, res) => {
     try {
         const { contact, code } = req.body;
         if (!(await Verifikasi.cekKode(contact, code))) {
-            return gagal(res, 400, "code_invalid", "Kode salah atau kedaluwarsa");
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
         }
         res.json({ success: true });
     } catch (error) {
@@ -79,10 +98,20 @@ exports.register = async (req, res) => {
 
         // Kode dicek ulang di sini supaya endpoint ini tidak bisa dipakai tanpa verifikasi
         if (!(await Verifikasi.cekKode(contact, code))) {
-            return gagal(res, 400, "code_invalid", "Kode salah atau kedaluwarsa");
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
         }
         if (await cariKontak(contact_type, contact)) {
-            return gagal(res, 409, "contact_taken", pesanTerpakai(contact_type));
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
         }
 
         const isPhone = contact_type === "phone";
@@ -104,7 +133,12 @@ exports.register = async (req, res) => {
         });
     } catch (error) {
         if (error.code === "ER_DUP_ENTRY") {
-            return gagal(res, 409, "contact_taken", pesanTerpakai(req.body.contact_type));
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(req.body.contact_type),
+            );
         }
         galatServer(res, "[MOBILE register]", error);
     }
@@ -171,7 +205,12 @@ exports.loginVerify = async (req, res) => {
     try {
         const { contact, code } = req.body;
         if (!(await Verifikasi.cekKode(kunciLogin(contact), code))) {
-            return gagal(res, 400, "code_invalid", "Kode salah atau kedaluwarsa");
+            return gagal(
+                res,
+                400,
+                "code_invalid",
+                "Kode salah atau kedaluwarsa",
+            );
         }
 
         const akun = await Pengunjung.findLogin(
@@ -216,7 +255,13 @@ const orderJson = (r) => ({
     access_code: r.kode_akses,
     transaction_id: r.id_trx,
     status:
-        r.status === "Berhasil" ? "paid" : r.status === "Gagal" ? "failed" : "pending",
+        r.status === "Berhasil"
+            ? "paid"
+            : r.status === "Dibatalkan"
+              ? "cancelled"
+              : r.status === "Gagal"
+                ? "failed"
+                : "pending",
     access_expires_at: r.kedaluwarsa_akses
         ? new Date(r.kedaluwarsa_akses).toISOString()
         : null,
@@ -263,9 +308,15 @@ exports.createOrder = async (req, res) => {
 exports.payOrder = async (req, res) => {
     try {
         const row = await pesananMilik(req.params.trx, req.user.id);
-        if (!row) return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
         if (row.jenis_pembayaran !== "QRIS") {
-            return gagal(res, 403, "cash_needs_admin", "Pembayaran tunai dikonfirmasi oleh admin");
+            return gagal(
+                res,
+                403,
+                "cash_needs_admin",
+                "Pembayaran tunai dikonfirmasi oleh admin",
+            );
         }
         if (row.status === "Pending") {
             await Keuangan.konfirmasi(row.id);
@@ -273,6 +324,28 @@ exports.payOrder = async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         galatServer(res, "[MOBILE payOrder]", error);
+    }
+};
+
+// Pengguna menekan Cancel di halaman pembayaran: status pesanan menjadi "Dibatalkan"
+// (tetap tercatat sebagai bukti, tidak dihitung sebagai pemasukan, kode aksesnya tidak berlaku).
+exports.cancelOrder = async (req, res) => {
+    try {
+        const row = await pesananMilik(req.params.trx, req.user.id);
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        if (row.status === "Berhasil") {
+            return gagal(
+                res,
+                409,
+                "already_paid",
+                "Pesanan sudah dibayar dan tidak bisa dibatalkan",
+            );
+        }
+        if (row.status === "Pending") await Keuangan.batalkan(row.id);
+        res.json({ success: true }); // sudah dibatalkan sebelumnya juga dianggap berhasil
+    } catch (error) {
+        galatServer(res, "[MOBILE cancelOrder]", error);
     }
 };
 
@@ -288,7 +361,8 @@ exports.listOrders = async (req, res) => {
 exports.getOrder = async (req, res) => {
     try {
         const row = await pesananMilik(req.params.trx, req.user.id);
-        if (!row) return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
+        if (!row)
+            return gagal(res, 404, "order_missing", "Pesanan tidak ditemukan");
         res.json({ success: true, order: orderJson(row) });
     } catch (error) {
         galatServer(res, "[MOBILE getOrder]", error);
@@ -312,7 +386,7 @@ const feedbackJson = (r) => ({
     id: r.id,
     rating: r.rating,
     review: r.ulasan,
-    photo: r.foto, // path relatif, mis. "/uploads/feedback/xxx.jpg"; null = tanpa foto
+    photos: parseFoto(r.foto), // daftar path relatif (0-3), mis. "/uploads/feedback/xxx.jpg"
     reply: r.balasan_admin, // null = belum dibalas
     status: r.balasan_admin ? "replied" : "pending",
     created_at: new Date(r.tanggal).toISOString(),
@@ -331,11 +405,11 @@ exports.feedbackToday = async (req, res) => {
 };
 
 exports.createFeedback = async (req, res) => {
-    const foto = req.file ? PUBLIC_PREFIX + req.file.filename : null;
+    const fotoList = (req.files ?? []).map((f) => PUBLIC_PREFIX + f.filename);
     try {
         const parsed = feedbackKirimSchema.safeParse(req.body ?? {});
         if (!parsed.success) {
-            hapusFileFoto(foto);
+            hapusFileFoto(fotoList);
             return gagal(
                 res,
                 400,
@@ -346,11 +420,11 @@ exports.createFeedback = async (req, res) => {
 
         const akun = await Pengunjung.findById(req.user.id);
         if (!akun) {
-            hapusFileFoto(foto);
+            hapusFileFoto(fotoList);
             return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
         }
         if (await Feedback.sudahKirimHariIni(akun.id)) {
-            hapusFileFoto(foto);
+            hapusFileFoto(fotoList);
             return gagal(
                 res,
                 409,
@@ -364,12 +438,12 @@ exports.createFeedback = async (req, res) => {
             nama: akun.nama,
             rating: parsed.data.rating,
             ulasan: parsed.data.review,
-            foto,
+            foto: fotoList.length ? JSON.stringify(fotoList) : null,
         });
         const row = await Feedback.findOwn(id, akun.id);
         res.status(201).json({ success: true, feedback: feedbackJson(row) });
     } catch (error) {
-        hapusFileFoto(foto);
+        hapusFileFoto(fotoList);
         galatServer(res, "[MOBILE createFeedback]", error);
     }
 };
@@ -386,7 +460,13 @@ exports.listFeedback = async (req, res) => {
 exports.getFeedback = async (req, res) => {
     try {
         const row = await Feedback.findOwn(req.params.id, req.user.id);
-        if (!row) return gagal(res, 404, "feedback_missing", "Ulasan tidak ditemukan");
+        if (!row)
+            return gagal(
+                res,
+                404,
+                "feedback_missing",
+                "Ulasan tidak ditemukan",
+            );
         res.json({ success: true, feedback: feedbackJson(row) });
     } catch (error) {
         galatServer(res, "[MOBILE getFeedback]", error);
@@ -401,9 +481,177 @@ exports.getFeedback = async (req, res) => {
 // keduanya tidak bisa dipakai siapa pun karena id akun yang dihapus tidak dipakai ulang.
 exports.deleteAccount = async (req, res) => {
     try {
+        await Perangkat.hapusSemua(req.user.id); // HP akun ini berhenti menerima notifikasi
+        await KoleksiTersimpan.hapusPengunjung(req.user.id); // benda yang disimpan ikut terhapus
         await Pengunjung.delete(req.user.id);
         res.json({ success: true });
     } catch (error) {
         galatServer(res, "[MOBILE deleteAccount]", error);
+    }
+};
+
+// =====================================================================
+// NOTIFIKASI PUSH: daftar / lepas HP
+// =====================================================================
+// Dipanggil aplikasi setelah masuk (dan saat token berubah)
+exports.daftarkanPerangkat = async (req, res) => {
+    try {
+        await Perangkat.simpan(req.user.id, req.body.token, req.body.platform);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE daftarkanPerangkat]", error);
+    }
+};
+
+// Dipanggil saat Log Out supaya HP ini tidak menerima notifikasi akun tersebut
+exports.lepasPerangkat = async (req, res) => {
+    try {
+        await Perangkat.hapusToken(req.body.token, req.user.id);
+        res.json({ success: true });
+    } catch (error) {
+        galatServer(res, "[MOBILE lepasPerangkat]", error);
+    }
+};
+
+// =====================================================================
+// MENAUTKAN EMAIL / NOMOR TELEPON KEDUA KE AKUN (menu Profil > Keamanan)
+// Akun yang daftar dengan email boleh menautkan nomor telepon, dan sebaliknya.
+// Hasilnya langsung terlihat di menu Data User (web admin) karena memakai tabel pengunjung.
+// =====================================================================
+const kunciTautan = (idAkun, kontak) => `link:${idAkun}:${kontak}`;
+
+// Langkah 1: cek kontak lalu kirim kode (simulasi: kode tampil di terminal backend)
+exports.tautSendCode = async (req, res) => {
+    try {
+        const { contact_type, contact } = req.body;
+        const akun = await Pengunjung.findById(req.user.id);
+        if (!akun) {
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+
+        const sudahTerisi =
+            contact_type === "phone" ? akun.no_telp : akun.email;
+        if (sudahTerisi) {
+            return gagal(res, 409, "already_linked", "Sudah tertaut");
+        }
+        if (await cariKontak(contact_type, contact)) {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
+        }
+
+        const code = crypto.randomInt(100000, 1000000).toString();
+        await Verifikasi.simpanKodeTautan(kunciTautan(akun.id, contact), code);
+        console.log(`[SIMULASI KODE TAUT] ${contact} -> ${code}`);
+
+        res.json({ success: true, message: "Kode verifikasi dikirim" });
+    } catch (error) {
+        galatServer(res, "[MOBILE tautSendCode]", error);
+    }
+};
+
+// Langkah 2: cek kode. Benar -> kontak tersimpan di akun ini.
+exports.tautVerify = async (req, res) => {
+    try {
+        const { contact_type, contact, code } = req.body;
+        const akun = await Pengunjung.findById(req.user.id);
+        if (!akun) {
+            return gagal(res, 404, "account_missing", "Akun tidak ditemukan");
+        }
+
+        const kunci = kunciTautan(akun.id, contact);
+        const hasil = await Verifikasi.cekKodeTautan(kunci, code);
+        if (hasil === "kedaluwarsa") {
+            return gagal(res, 400, "code_expired", "Kode telah kedaluwarsa");
+        }
+        if (hasil !== "ok") {
+            return gagal(res, 400, "code_invalid", "Kode tidak valid");
+        }
+
+        // Dicek lagi: dalam jeda ini kontaknya mungkin dipakai akun lain
+        if (await cariKontak(contact_type, contact)) {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(contact_type),
+            );
+        }
+        if (!(await Pengunjung.tautkanKontak(akun.id, contact_type, contact))) {
+            return gagal(res, 409, "already_linked", "Sudah tertaut");
+        }
+        await Verifikasi.hapusTautan(kunci);
+
+        const baru = await Pengunjung.findById(akun.id);
+        res.json({
+            success: true,
+            user: {
+                id: String(baru.id),
+                name: baru.nama,
+                email: baru.email,
+                phone: baru.no_telp,
+            },
+        });
+    } catch (error) {
+        if (error.code === "ER_DUP_ENTRY") {
+            return gagal(
+                res,
+                409,
+                "contact_taken",
+                pesanTerpakai(req.body.contact_type),
+            );
+        }
+        galatServer(res, "[MOBILE tautVerify]", error);
+    }
+};
+
+// =====================================================================
+// KOLEKSI SEJARAH untuk aplikasi mobile (data dari menu Koleksi Sejarah di web admin)
+// =====================================================================
+
+// Semua benda sejarah. Foto: "/uploads/koleksi/xxx.jpg" atau URL penuh.
+exports.listCollections = async (req, res) => {
+    try {
+        const rows = await Koleksi.getAll();
+        res.json({
+            success: true,
+            items: rows.map((r) => ({
+                id: String(r.id),
+                name: r.nama,
+                category: r.jenis,
+                year: r.tahun,
+                story: r.deskripsi,
+                identity: r.identitas || "",
+                image: r.gambar,
+            })),
+        });
+    } catch (error) {
+        galatServer(res, "[MOBILE listCollections]", error);
+    }
+};
+
+// Id benda yang disimpan akun ini
+exports.savedCollections = async (req, res) => {
+    try {
+        res.json({ success: true, ids: await KoleksiTersimpan.ids(req.user.id) });
+    } catch (error) {
+        galatServer(res, "[MOBILE savedCollections]", error);
+    }
+};
+
+// Simpan / hapus simpanan satu benda. saved = true bila sekarang tersimpan.
+exports.toggleSavedCollection = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isInteger(id) || !(await Koleksi.getById(id))) {
+            return gagal(res, 404, "not_found", "Benda tidak ditemukan");
+        }
+        const saved = await KoleksiTersimpan.toggle(req.user.id, id);
+        res.json({ success: true, saved });
+    } catch (error) {
+        galatServer(res, "[MOBILE toggleSavedCollection]", error);
     }
 };

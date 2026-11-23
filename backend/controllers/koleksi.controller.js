@@ -1,4 +1,5 @@
 const Koleksi = require("../models/koleksi.model");
+const KoleksiTersimpan = require("../models/koleksiTersimpan.model");
 const {
     hapusFileGambar,
     PUBLIC_PREFIX,
@@ -10,8 +11,6 @@ const DEFAULT_GAMBAR =
 
 // Path yang disimpan di database, contoh: /uploads/koleksi/koleksi-1730000000000-ab12cd34ef56.jpg
 const pathGambar = (file) => (file ? `${PUBLIC_PREFIX}${file.filename}` : null);
-
-const isTokenKembar = (error) => error && error.code === "ER_DUP_ENTRY";
 
 exports.getSemuaKoleksi = async (req, res) => {
     try {
@@ -37,15 +36,10 @@ exports.tambahKoleksi = async (req, res) => {
         });
     } catch (error) {
         hapusFileGambar(gambar); // jangan tinggalkan file yatim jika insert gagal
-        if (isTokenKembar(error)) {
-            return res.status(409).json({
-                success: false,
-                message: "Token sudah digunakan, gunakan token lain.",
-            });
-        }
+        console.error("[KOLEKSI tambah]", error);
         res.status(500).json({
             success: false,
-            message: "Gagal menambah data, pastikan token unik!",
+            message: "Gagal menambah data",
         });
     }
 };
@@ -72,12 +66,7 @@ exports.ubahKoleksi = async (req, res) => {
         res.json({ success: true, message: "Data berhasil diperbarui" });
     } catch (error) {
         hapusFileGambar(gambarBaru);
-        if (isTokenKembar(error)) {
-            return res.status(409).json({
-                success: false,
-                message: "Token sudah digunakan, gunakan token lain.",
-            });
-        }
+        console.error("[KOLEKSI ubah]", error);
         res.status(500).json({
             success: false,
             message: "Gagal memperbarui data",
@@ -89,6 +78,7 @@ exports.hapusKoleksi = async (req, res) => {
     try {
         const lama = await Koleksi.getById(req.params.id);
         await Koleksi.delete(req.params.id);
+        await KoleksiTersimpan.hapusKoleksi(req.params.id); // hilang dari simpanan pengunjung
         if (lama) hapusFileGambar(lama.gambar);
         res.json({ success: true, message: "Data berhasil dihapus" });
     } catch (error) {

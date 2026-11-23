@@ -1,6 +1,9 @@
 const express = require("express");
 const mobileController = require("../controllers/mobile.controller");
-const { authenticate, requireVisitor } = require("../middleware/auth.middleware");
+const {
+    authenticate,
+    requireVisitor,
+} = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 const { uploadFoto } = require("../middleware/uploadFeedback.middleware");
 const {
@@ -11,38 +14,132 @@ const {
     loginVerifySchema,
     orderSchema,
     accessSchema,
+    perangkatSchema,
+    tautKontakSchema,
+    tautVerifikasiSchema,
 } = require("../schemas/mobile.schema");
 
 const router = express.Router();
 
 // --- Pendaftaran (publik) ---
-router.post("/auth/contact-exists", validate(kontakSchema), mobileController.contactExists);
-router.post("/auth/send-code", validate(kontakSchema), mobileController.sendCode);
-router.post("/auth/verify-code", validate(verifySchema), mobileController.verifyCode);
-router.post("/auth/register", validate(registerSchema), mobileController.register);
+router.post(
+    "/auth/contact-exists",
+    validate(kontakSchema),
+    mobileController.contactExists,
+);
+router.post(
+    "/auth/send-code",
+    validate(kontakSchema),
+    mobileController.sendCode,
+);
+router.post(
+    "/auth/verify-code",
+    validate(verifySchema),
+    mobileController.verifyCode,
+);
+router.post(
+    "/auth/register",
+    validate(registerSchema),
+    mobileController.register,
+);
 
 // --- Login (publik): password -> kode -> token ---
 router.post("/auth/login", validate(loginSchema), mobileController.login);
-router.post("/auth/login/verify", validate(loginVerifySchema), mobileController.loginVerify);
+router.post(
+    "/auth/login/verify",
+    validate(loginVerifySchema),
+    mobileController.loginVerify,
+);
 
 // --- Pesanan tiket & kode akses (butuh token pengunjung) ---
 const pengunjungSaja = [authenticate, requireVisitor];
-router.post("/orders", ...pengunjungSaja, validate(orderSchema), mobileController.createOrder);
+router.post(
+    "/orders",
+    ...pengunjungSaja,
+    validate(orderSchema),
+    mobileController.createOrder,
+);
 router.get("/orders", ...pengunjungSaja, mobileController.listOrders);
 router.get("/orders/:trx", ...pengunjungSaja, mobileController.getOrder);
 router.post("/orders/:trx/pay", ...pengunjungSaja, mobileController.payOrder);
-router.post("/access/verify", ...pengunjungSaja, validate(accessSchema), mobileController.verifyAccess);
+router.post(
+    "/orders/:trx/cancel",
+    ...pengunjungSaja,
+    mobileController.cancelOrder,
+);
+router.post(
+    "/access/verify",
+    ...pengunjungSaja,
+    validate(accessSchema),
+    mobileController.verifyAccess,
+);
 
 // --- Ulasan (feedback) & hapus akun ---
 // /feedback/today harus di atas /feedback/:id
-router.get("/feedback/today", ...pengunjungSaja, mobileController.feedbackToday);
-router.post("/feedback", ...pengunjungSaja, uploadFoto, mobileController.createFeedback);
+router.get(
+    "/feedback/today",
+    ...pengunjungSaja,
+    mobileController.feedbackToday,
+);
+router.post(
+    "/feedback",
+    ...pengunjungSaja,
+    uploadFoto,
+    mobileController.createFeedback,
+);
 router.get("/feedback", ...pengunjungSaja, mobileController.listFeedback);
 router.get("/feedback/:id", ...pengunjungSaja, mobileController.getFeedback);
 router.delete("/account", ...pengunjungSaja, mobileController.deleteAccount);
 
+// --- Koleksi sejarah (data dari web admin) ---
+router.get("/collections", ...pengunjungSaja, mobileController.listCollections);
+router.get("/collections/saved", ...pengunjungSaja, mobileController.savedCollections);
+router.post(
+    "/collections/:id/toggle-save",
+    ...pengunjungSaja,
+    mobileController.toggleSavedCollection,
+);
+
+// --- Menautkan email / nomor telepon kedua ke akun (Profil > Keamanan) ---
+router.post(
+    "/account/contact/send-code",
+    ...pengunjungSaja,
+    validate(tautKontakSchema),
+    mobileController.tautSendCode,
+);
+router.post(
+    "/account/contact/verify",
+    ...pengunjungSaja,
+    validate(tautVerifikasiSchema),
+    mobileController.tautVerify,
+);
+
+// --- Notifikasi push: daftar / lepas HP ---
+router.post(
+    "/devices",
+    ...pengunjungSaja,
+    validate(perangkatSchema),
+    mobileController.daftarkanPerangkat,
+);
+router.post(
+    "/devices/remove",
+    ...pengunjungSaja,
+    validate(perangkatSchema),
+    mobileController.lepasPerangkat,
+);
+
 // --- Status Online / Offline (butuh token pengunjung dari register) ---
-router.post("/presence/heartbeat", authenticate, requireVisitor, mobileController.heartbeat);
-router.post("/presence/offline", authenticate, requireVisitor, mobileController.goOffline);
+router.post(
+    "/presence/heartbeat",
+    authenticate,
+    requireVisitor,
+    mobileController.heartbeat,
+);
+router.post(
+    "/presence/offline",
+    authenticate,
+    requireVisitor,
+    mobileController.goOffline,
+);
 
 module.exports = router;
