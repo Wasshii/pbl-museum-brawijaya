@@ -66,7 +66,7 @@ export default function RentangTanggalPicker({ value, onChange }: Props) {
             {open && (
                 <div className="absolute top-full right-0 mt-2 w-[320px] bg-white rounded-[24px] shadow-2xl border border-gray-100 p-6 z-30">
                     <h4 className="text-black font-bold text-[16px] mb-4">
-                        Pilih Rentang Tanggal
+                        Atur Tanggal
                     </h4>
                     <div className="flex flex-col gap-4 mb-6">
                         <div>
