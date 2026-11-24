@@ -11,7 +11,7 @@ export const NAVIGATION = [
     { label: "Keuangan", href: "/dashboard/keuangan", icon: WalletCards },
     { label: "Koleksi Sejarah", href: "/dashboard/sejarah", icon: BookOpen },
     { label: "Akun Data User", href: "/dashboard/user", icon: CircleUserRound },
-    { label: "Feed Back", href: "/dashboard/feedback", icon: MessageSquare },
+    { label: "Feed Back Pengunjung", href: "/dashboard/feedback", icon: MessageSquare },
 ];
 
 // Kategori benda: sama dengan tombol kategori di aplikasi mobile
