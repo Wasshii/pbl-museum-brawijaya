@@ -47,7 +47,7 @@ export default function RentangTanggalPicker({ value, onChange }: Props) {
               ? `Dari: ${formatTanggal(value.dari)}`
               : value.sampai
                 ? `Sampai: ${formatTanggal(value.sampai)}`
-                : "Pilih Rentang Tanggal";
+                : "Atur Tanggal";
 
     return (
         <div className="relative flex-1 sm:flex-initial" ref={ref}>
