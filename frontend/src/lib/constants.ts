@@ -10,7 +10,7 @@ export const NAVIGATION = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutGrid },
     { label: "Keuangan", href: "/dashboard/keuangan", icon: WalletCards },
     { label: "Koleksi Sejarah", href: "/dashboard/sejarah", icon: BookOpen },
-    { label: "Data User", href: "/dashboard/user", icon: CircleUserRound },
+    { label: "Akun Data User", href: "/dashboard/user", icon: CircleUserRound },
     { label: "Feed Back", href: "/dashboard/feedback", icon: MessageSquare },
 ];
 
